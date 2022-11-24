@@ -43,33 +43,59 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
 
 ```{r, tree}
 # Bring in the fly tree
-tree <- read.tree("./phylogeny/drosi.tre")
+tree <- read.tree("./phylogeny/drosi2.tre")
 
 # Plot the tree
 plot(tree, cex = 0.2)
 
 # Ultrametric?
 is.ultrametric(tree) # nope
+tree2 <- force.ultrametric(tree, method = "extend")
 
+# Grab out data
+   data <- read.csv("./data/drosi_data.csv")
+
+# functions
+source("./R/func.R")
+t <- tree_checks(tree2, data = data, dataCol = "species", type = "check")
+data <- data %>% mutate(species = gsub(" ", "", species),
+                        phylo = species,
+                        obs = 1:n()) %>% filter(!species %in% t$Species_InData_But_NotTree) 
+tree3 <- tree_checks(tree2, data = data, dataCol = "species", type = "prune")
+tree_checks(tree3, data = data, dataCol = "species", type = "check")
 # Grab phylo matrix
-phy_vcv <- vcv(tree)
+phy_vcv <- vcv(tree3, cor = FALSE)
 
 ```
 
 
 ```{r}
-## Models
-   ctmax <- mv(ctmax | se(sqrt(ctmax_se)) ~ 1 + (1|q|gr(phylo = phy_vcv)) + (1|spp) + (1|obs)) + gaussian()
-    cfts <- mv( cfts | se(sqrt(cfts_se))  ~ 1 + (1|q|gr(phylo = phy_vcv)) + (1|spp)) + gaussian()
-   tdt_i <- mv(tdt_i |  mi() ~ 1 + (1|q|gr(phylo = phy_vcv)) + (1|spp)) + gaussian()
-   tdt_z <- mv(tdt_z |  mi() ~ 1 + (1|q|gr(phylo = phy_vcv)) + (1|spp)) + gaussian()
+
+
+## Model(s)
+   ctmax <- bf(ctmax | se(sqrt(ctmax_se)) ~ 1 + (1|q|gr(phylo, cov = phy_vcv)) + (1|species) + (1|obs)) + gaussian()
+    cfts <- bf( cfts |  mi() ~ 1 + (1|q|gr(phylo, cov = phy_vcv)) + (1|species)) + gaussian()
+   #tdt_i <- bf(tdt_i |  mi() ~ 1 + (1|q|gr(phylo = phy_vcv)) + (1|spp)) + gaussian()
+   tdt_z <- bf(tdt_z |  mi() ~ 1 + (1|q|gr(phylo, cov = phy_vcv)) + (1|species)) + gaussian()
 
                     
-       mv_brms_model <- brms::brm(ctmax + tdt_i + tdt_z + cfts, 
+       mv_brms_model <- brms::brm(ctmax + tdt_z + cfts, 
                         warmup = 1000, iter = 4000, thin = 5, 
-                        control = list(adapt_delta = 0.95, max_treedepth = 15), 
-                        data = data, data2 = phy_vcv)
+                        control = list(adapt_delta = 0.95, max_treedepth = 15), cores = 4,
+                        data = data, data2 = list(phy_vcv = phy_vcv))
 
+#### Try MCMCglmm which I expect will be MUCH faster. Deals with missing data using data augmentation
+
+prior = list(R = list(V = diag(3), nu=1.002), 
+             G = list(G1=list(V = diag(3), nu = 1.002)))
+
+data$animal = data$phylo
+
+mcmcglmm_model <- MCMCglmm::MCMCglmm(cbind(ctmax, cfts, tdt_z) ~ -1 + trait, random = ~us(trait):animal, rcov = ~us(trait):units ,
+                                     pedigree=tree3,
+                                     burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior, 
+                                    pl = TRUE, pr = TRUE, data = data)
+saveRDS(mcmcglmm_model, file = "./output/model/mcmcglmm_model")
 ```
 
 
