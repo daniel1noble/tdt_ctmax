@@ -35,10 +35,27 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
 ##################################
 # Loading packages & Functions
 ##################################
-    pacman::p_load(tidyverse,  metafor, flextable, raster, rasterVis,  patchwork, RColorBrewer, ggtree, ape, phytools, viridis, MCMCglmm, brms, latex2exp, orchaRd, multcomp)
+    pacman::p_load(tidyverse,  metafor, flextable,  patchwork, ggtree, ape, phytools, viridis, MCMCglmm, brms, latex2exp, orchaRd, multcomp)
 
 
 ```
+
+
+```{r, tree}
+# Bring in the fly tree
+tree <- read.tree("./phylogeny/drosi.tre")
+
+# Plot the tree
+plot(tree, cex = 0.2)
+
+# Ultrametric?
+is.ultrametric(tree) # nope
+
+# Grab phylo matrix
+phy_vcv <- vcv(tree)
+
+```
+
 
 
 ## References
