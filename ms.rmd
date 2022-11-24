@@ -57,5 +57,20 @@ phy_vcv <- vcv(tree)
 ```
 
 
+```{r}
+## Models
+   ctmax <- mv(ctmax | se(sqrt(ctmax_se)) ~ 1 + (1|q|gr(phylo = phy_vcv)) + (1|spp) + (1|obs)) + gaussian()
+    cfts <- mv( cfts | se(sqrt(cfts_se))  ~ 1 + (1|q|gr(phylo = phy_vcv)) + (1|spp)) + gaussian()
+   tdt_i <- mv(tdt_i |  mi() ~ 1 + (1|q|gr(phylo = phy_vcv)) + (1|spp)) + gaussian()
+   tdt_z <- mv(tdt_z |  mi() ~ 1 + (1|q|gr(phylo = phy_vcv)) + (1|spp)) + gaussian()
+
+                    
+       mv_brms_model <- brms::brm(ctmax + tdt_i + tdt_z + cfts, 
+                        warmup = 1000, iter = 4000, thin = 5, 
+                        control = list(adapt_delta = 0.95, max_treedepth = 15), 
+                        data = data, data2 = phy_vcv)
+
+```
+
 
 ## References
