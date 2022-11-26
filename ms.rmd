@@ -65,37 +65,52 @@ tree3 <- tree_checks(tree2, data = data, dataCol = "species", type = "prune")
 tree_checks(tree3, data = data, dataCol = "species", type = "check")
 # Grab phylo matrix
 phy_vcv <- vcv(tree3, cor = FALSE)
+tree3$node.label <- NULL
 
 ```
 
 
 ```{r}
 
-
-## Model(s)
-   ctmax <- bf(ctmax | se(sqrt(ctmax_se)) ~ 1 + (1|q|gr(phylo, cov = phy_vcv)) + (1|species) + (1|obs)) + gaussian()
-    cfts <- bf( cfts |  mi() ~ 1 + (1|q|gr(phylo, cov = phy_vcv)) + (1|species)) + gaussian()
-   #tdt_i <- bf(tdt_i |  mi() ~ 1 + (1|q|gr(phylo = phy_vcv)) + (1|spp)) + gaussian()
-   tdt_z <- bf(tdt_z |  mi() ~ 1 + (1|q|gr(phylo, cov = phy_vcv)) + (1|species)) + gaussian()
-
-                    
-       mv_brms_model <- brms::brm(ctmax + tdt_z + cfts, 
-                        warmup = 1000, iter = 4000, thin = 5, 
-                        control = list(adapt_delta = 0.95, max_treedepth = 15), cores = 4,
-                        data = data, data2 = list(phy_vcv = phy_vcv))
-
 #### Try MCMCglmm which I expect will be MUCH faster. Deals with missing data using data augmentation
-
-prior = list(R = list(V = diag(3), nu=1.002), 
+rerun = FALSE
+if(rerun){
+  prior = list(R = list(V = diag(3), nu=1.002), 
              G = list(G1=list(V = diag(3), nu = 1.002)))
 
 data$animal = data$phylo
 
-mcmcglmm_model <- MCMCglmm::MCMCglmm(cbind(ctmax, cfts, tdt_z) ~ -1 + trait, random = ~us(trait):animal, rcov = ~us(trait):units ,
-                                     pedigree=tree3,
-                                     burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior, 
-                                    pl = TRUE, pr = TRUE, data = data)
+mcmcglmm_model <- MCMCglmm::MCMCglmm(cbind(ctmax, cfts, tdt_z) ~ -1 + trait, random = ~us(trait):animal, rcov = ~us(trait):units ,pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior, pl = TRUE, pr = TRUE, data = data)
+
+# We'll also z-transofmr to make the coprrelation stuff easier to calculate. 
+data <- data %>% mutate(z_ctmax = scale(ctmax),
+                         z_cfts = scale(cfts),
+                        z_tdt_z = scale(tdt_z))
+
+mcmcglmm_model_z_trans <- MCMCglmm::MCMCglmm(cbind(z_ctmax, z_cfts, z_tdt_z) ~ -1 + trait, random = ~us(trait):animal, rcov = ~us(trait):units, pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior, pl = TRUE, pr = TRUE, data = data)
+
 saveRDS(mcmcglmm_model, file = "./output/model/mcmcglmm_model")
+saveRDS(mcmcglmm_model_z_trans, file = "./output/model/mcmcglmm_model_z_trans")
+} else{
+  mcmcglmm_model <- readRDS("./output/model/mcmcglmm_model")
+}
+
+
+# Extract estimates
+sol <- mcmcglmm_model$Sol
+vcv <- mcmcglmm_model$VCV
+
+# Extract the estmated / imputaed Z for each species, but drop internal ancestral nodes
+z <- sol[, grep("traittdt_z.animal", colnames(sol))]
+z <- z[,-grep("Node", colnames(z))]
+head(z)
+
+# Clean up names so they are just species names
+
+
+
+
+
 ```
 
 
