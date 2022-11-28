@@ -112,9 +112,12 @@ mcmcglmm_model_z_trans_nophylo <- readRDS("./output/model/mcmcglmm_model_z_trans
   vcv <- mcmcglmm_model$VCV
 
 # Extract the estimated / imputed Z for each species, but drop internal ancestral nodes
-  z <- sol[, grep("traittdt_z.animal", colnames(sol))]
-  z <- z[,-grep("Node", colnames(z))]
-  head(z)
+  z_blups <- sol[, grep("traittdt_z.animal", colnames(sol))]
+  z_blups <- z[,-grep("Node", colnames(z))]
+  head(z_blups)
+
+# Remember that these are BLUPs. They are deviations from the intercept. So, to get back to the z we need to add the intercept to each of them.
+  z <- z_blups + mean(sol[, "traittdt_z"])
 
 # Clean up names so they are just species names
   colnames(z) <- gsub("traittdt_z.animal.", "", colnames(z))
