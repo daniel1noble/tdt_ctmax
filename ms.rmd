@@ -37,87 +37,93 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
 ##################################
     pacman::p_load(tidyverse,  metafor, flextable,  patchwork, ggtree, ape, phytools, viridis, MCMCglmm, brms, latex2exp, orchaRd, multcomp)
 
-
 ```
 
 
 ```{r, tree}
 # Bring in the fly tree
-tree <- read.tree("./phylogeny/drosi2.tre")
+  tree <- read.tree("./phylogeny/drosi2.tre")
 
 # Plot the tree
-plot(tree, cex = 0.2)
+  plot(tree, cex = 0.2)
 
 # Ultrametric?
-is.ultrametric(tree) # nope
-tree2 <- force.ultrametric(tree, method = "extend")
+  is.ultrametric(tree) # nope
+  tree2 <- force.ultrametric(tree, method = "extend")
 
 # Grab out data
    data <- read.csv("./data/drosi_data.csv")
 
 # functions
-source("./R/func.R")
-t <- tree_checks(tree2, data = data, dataCol = "species", type = "check")
-data <- data %>% mutate(species = gsub(" ", "", species),
-                        phylo = species,
-                        obs = 1:n()) %>% filter(!species %in% t$Species_InData_But_NotTree) 
-tree3 <- tree_checks(tree2, data = data, dataCol = "species", type = "prune")
-tree_checks(tree3, data = data, dataCol = "species", type = "check")
-# Grab phylo matrix
-phy_vcv <- vcv(tree3, cor = FALSE)
-tree3$node.label <- NULL
+  source("./R/func.R")
+  t <- tree_checks(tree2, data = data, dataCol = "species", type = "check")
+  data <- data %>% mutate(species = gsub(" ", "", species),
+                          phylo = species,
+                          obs = 1:n()) %>% filter(!species %in% t$Species_InData_But_NotTree) 
+  tree3 <- tree_checks(tree2, data = data, dataCol = "species", type = "prune")
+  tree_checks(tree3, data = data, dataCol = "species", type = "check")
+
+  # Grab phylo matrix
+  phy_vcv <- vcv(tree3, cor = FALSE)
+  tree3$node.label <- NULL
 
 ```
 
 
-```{r}
+```{r, models}
 
-#### Try MCMCglmm which I expect will be MUCH faster. Deals with missing data using data augmentation
+### MCMCglmm Bayesian models. Deals with missing data using data augmentation
+
 rerun = FALSE
 if(rerun){
-  prior = list(R = list(V = diag(3), nu=1.002), 
-             G = list(G1=list(V = diag(3), nu = 1.002)))
-
-data$animal = data$phylo
-
-mcmcglmm_model <- MCMCglmm::MCMCglmm(cbind(ctmax, cfts, tdt_z) ~ -1 + trait, random = ~us(trait):animal, rcov = ~us(trait):units ,pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior, pl = TRUE, pr = TRUE, data = data)
-
-# We'll also z-transofmr to make the coprrelation stuff easier to calculate. 
-data <- data %>% mutate(z_ctmax = scale(ctmax),
-                         z_cfts = scale(cfts),
-                        z_tdt_z = scale(tdt_z))
-
-mcmcglmm_model_z_trans <- MCMCglmm::MCMCglmm(cbind(z_ctmax, z_cfts, z_tdt_z) ~ -1 + trait, random = ~us(trait):animal, rcov = ~us(trait):units, pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior, pl = TRUE, pr = TRUE, data = data)
-
-# Ditch phylogeny to see if there is support for including it or not. DIC is WAY lower for phylogenetic model, so good to include it.
-prior2 = list(R = list(V = diag(3), nu=1.002))
-mcmcglmm_model_z_trans_nophylo <- MCMCglmm::MCMCglmm(cbind(z_ctmax, z_cfts, z_tdt_z) ~ -1 + trait, rcov = ~us(trait):units, pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior2, pl = TRUE, pr = TRUE, data = data)
-
-saveRDS(mcmcglmm_model, file = "./output/model/mcmcglmm_model")
-saveRDS(mcmcglmm_model_z_trans, file = "./output/model/mcmcglmm_model_z_trans")
-saveRDS(mcmcglmm_model_z_trans_nophylo, file = "./output/model/mcmcglmm_model_z_trans_nophylo")
+    prior = list(R = list(V = diag(3), nu=1.002), 
+               G = list(G1=list(V = diag(3), nu = 1.002)))
+  
+  data$animal = data$phylo
+  
+  mcmcglmm_model <- MCMCglmm::MCMCglmm(cbind(ctmax, cfts, tdt_z) ~ -1 + trait, random = ~us(trait):animal, rcov = ~us(trait):units ,pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior, pl = TRUE, pr = TRUE, data = data)
+  
+  # We'll also z-transform to make the correlation easier to calculate. 
+  data <- data %>% mutate(z_ctmax = scale(ctmax),
+                           z_cfts = scale(cfts),
+                          z_tdt_z = scale(tdt_z))
+  
+  mcmcglmm_model_z_trans <- MCMCglmm::MCMCglmm(cbind(z_ctmax, z_cfts, z_tdt_z) ~ -1 + trait, random = ~us(trait):animal, rcov = ~us(trait):units, pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior, pl = TRUE, pr = TRUE, data = data)
+  
+  # Ditch phylogeny to see if there is support for including it or not. DIC is WAY lower for phylogenetic model, so good to include it.
+  prior2 = list(R = list(V = diag(3), nu=1.002))
+  mcmcglmm_model_z_trans_nophylo <- MCMCglmm::MCMCglmm(cbind(z_ctmax, z_cfts, z_tdt_z) ~ -1 + trait, rcov = ~us(trait):units, pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior2, pl = TRUE, pr = TRUE, data = data)
+  
+  saveRDS(mcmcglmm_model, file = "./output/model/mcmcglmm_model")
+  saveRDS(mcmcglmm_model_z_trans, file = "./output/model/mcmcglmm_model_z_trans")
+  saveRDS(mcmcglmm_model_z_trans_nophylo, file = "./output/model/mcmcglmm_model_z_trans_nophylo")
 } else{
-  mcmcglmm_model <- readRDS("./output/model/mcmcglmm_model")
-  mcmcglmm_model_z_trans <- readRDS("./output/model/mcmcglmm_model_z_trans")
+                mcmcglmm_model <- readRDS("./output/model/mcmcglmm_model")
+        mcmcglmm_model_z_trans <- readRDS("./output/model/mcmcglmm_model_z_trans")
 mcmcglmm_model_z_trans_nophylo <- readRDS("./output/model/mcmcglmm_model_z_trans_nophylo")
 }
 
+```
 
-# Extract estimates
-sol <- mcmcglmm_model$Sol
-vcv <- mcmcglmm_model$VCV
+```{r, posteriors}
 
-# Extract the estmated / imputaed Z for each species, but drop internal ancestral nodes
-z <- sol[, grep("traittdt_z.animal", colnames(sol))]
-z <- z[,-grep("Node", colnames(z))]
-head(z)
+# Extract posterior estimates
+  sol <- mcmcglmm_model$Sol
+  vcv <- mcmcglmm_model$VCV
+
+# Extract the estimated / imputed Z for each species, but drop internal ancestral nodes
+  z <- sol[, grep("traittdt_z.animal", colnames(sol))]
+  z <- z[,-grep("Node", colnames(z))]
+  head(z)
 
 # Clean up names so they are just species names
+  colnames(z) <- gsub("traittdt_z.animal.", "", colnames(z))
 
-
-
-
-
+# Have a look at how well the model gets the actual data correct.
+  z_known <- data %>% filter(!is.na(tdt_z)) %>% dplyr::select(species, tdt_z) %>% distinct()
+    z_est <- apply(z, 2, function(x) median(x))[which(names(z_est) %in% z_known$species)]
+  
+  
 ```
 
 
