@@ -113,20 +113,24 @@ mcmcglmm_model_z_trans_nophylo <- readRDS("./output/model/mcmcglmm_model_z_trans
 
 # Extract the estimated / imputed Z for each species, but drop internal ancestral nodes
   z_blups <- sol[, grep("traittdt_z.animal", colnames(sol))]
-  z_blups <- z[,-grep("Node", colnames(z))]
+  z_blups <- z_blups[,-grep("Node", colnames(z_blups))]
   head(z_blups)
 
 # Remember that these are BLUPs. They are deviations from the intercept. So, to get back to the z we need to add the intercept to each of them.
-  z <- z_blups + mean(sol[, "traittdt_z"])
+  z <- z_blups + sol[, "traittdt_z"]
 
 # Clean up names so they are just species names
   colnames(z) <- gsub("traittdt_z.animal.", "", colnames(z))
 
 # Have a look at how well the model gets the actual data correct.
   z_known <- data %>% filter(!is.na(tdt_z)) %>% dplyr::select(species, tdt_z) %>% distinct()
-    z_est <- apply(z, 2, function(x) median(x))[which(names(z_est) %in% z_known$species)]
-  
-# Check phylogeneic signal. Need to think about the covariance here. 
+    z_est <- apply(z, 2, function(x) median(x))
+    z_est <- z_est[which(colnames(z) %in% z_known$species)]
+    z_est <- data.frame(z_est)
+    z_est$species <- row.names(z_est)
+  check_z <- left_join(z_known, z_est, by = "species")
+
+  # Check phylogeneic signal. Need to think about the covariance here. 
     # CTMax - Yes
       phylo_ctmax <- vcv[,"traitctmax:traitctmax.animal"]
       units_ctmax <- vcv[,"traitctmax:traitctmax.units"]
