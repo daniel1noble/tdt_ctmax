@@ -35,7 +35,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
 ##################################
 # Loading packages & Functions
 ##################################
-    pacman::p_load(tidyverse,  metafor, flextable,  patchwork, ggtree, ape, phytools, viridis, MCMCglmm, brms, latex2exp, orchaRd, multcomp)
+    pacman::p_load(tidyverse,  metafor, flextable,  patchwork, ggtree, ape, phytools, viridis, MCMCglmm, brms, latex2exp, orchaRd, multcomp, bayesplot)
 
 ```
 
@@ -154,6 +154,11 @@ mcmcglmm_model_z_trans_nophylo <- readRDS("./output/model/mcmcglmm_model_z_trans
       h2_z = phylo_z / (phylo_z + units_z)
       posterior.mode(h2_z)
       HPDinterval(h2_z)
+```
+
+```{r, posteriorsz}
+# We'll now plot the posterior distributions for each species.Obviously our 11 species with known data will have a much tighter distribution. You can see that in the plot. But the imputations are our 'best" guess based on the strong phylogenetic signal in the data. We can also always propagate the uncertainty across any subsequent analysis (like for example our micro-climate models)
+  mcmc_areas(z[,1:15],prob = 0.8)
 ```
 
 
