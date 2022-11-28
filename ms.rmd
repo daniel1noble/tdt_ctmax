@@ -123,7 +123,30 @@ mcmcglmm_model_z_trans_nophylo <- readRDS("./output/model/mcmcglmm_model_z_trans
   z_known <- data %>% filter(!is.na(tdt_z)) %>% dplyr::select(species, tdt_z) %>% distinct()
     z_est <- apply(z, 2, function(x) median(x))[which(names(z_est) %in% z_known$species)]
   
-  
+# Check phylogeneic signal. Need to think about the covariance here. 
+    # CTMax - Yes
+      phylo_ctmax <- vcv[,"traitctmax:traitctmax.animal"]
+      units_ctmax <- vcv[,"traitctmax:traitctmax.units"]
+      
+      h2_ctmax = phylo_ctmax / (phylo_ctmax + units_ctmax)
+      posterior.mode(h2_ctmax)
+      HPDinterval(h2_ctmax)
+    
+    # CFL - Yes
+      phylo_cfls <- vcv[,"traitcfts:traitcfts.animal"]
+      units_cfls <- vcv[,"traitcfts:traitcfts.units"]
+      
+      h2_cfls = phylo_cfls / (phylo_cfls + units_cfls)
+      posterior.mode(h2_cfls)
+      HPDinterval(h2_cfls)
+      
+    # z - Yes
+      phylo_z <- vcv[,"traittdt_z:traittdt_z.animal"]
+      units_z <- vcv[,"traittdt_z:traittdt_z.units"]
+      
+      h2_z = phylo_z / (phylo_z + units_z)
+      posterior.mode(h2_z)
+      HPDinterval(h2_z)
 ```
 
 
