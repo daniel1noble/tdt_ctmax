@@ -1,24 +1,25 @@
 ---
-title: ""
-author: et al. 
-date: "`r Sys.Date()`"
-bibliography: ./bib/refs.bib
-csl: ./bib/ecology-letters.csl
-output: 
-  bookdown::word_document2:
-    toc: no
-    toc_depth: 6
-    number_sections: false
-    reference_docx: ./bib/template.docx
-  bookdown::html_document2:
-    code_folding: hide
-    number_sections: no
-    toc: yes
-    toc_depth: 6
-    toc_float: yes
-    bibliography: refs.bib
+title: "Box 1 - TDT Curves"
+bibliography: ../bib/refs.bib
+csl: ../bib/nature.csl
+format:
+  docx:
+    reference-doc: ../bib/template.docx
 editor_options: 
   chunk_output_type: console
+execute:
+  freeze: auto  # re-render only when source changes
+  cache: false
+  echo: false
+  warning: false
+  error: false
+  include: true
+crossref:
+  fig-title: 'Figure'
+  fig-labels: arabic
+  title-delim: "-"
+  fig-prefix: "Figure"
+  tbl-prefix: "Table"
 ---
 
 ```{r setup, include=FALSE}
@@ -35,14 +36,13 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
 ##################################
 # Loading packages & Functions
 ##################################
-    pacman::p_load(tidyverse,  metafor, flextable,  patchwork, ggtree, ape, phytools, viridis, MCMCglmm, brms, latex2exp, orchaRd, multcomp, bayesplot)
+    pacman::p_load(tidyverse,  metafor, flextable,  patchwork, ggtree, ape, phytools, viridis, MCMCglmm, brms, latex2exp, orchaRd, multcomp, bayesplot, here)
 
 ```
 
-
 ```{r, tree}
 # Bring in the fly tree
-  tree <- read.tree("./phylogeny/drosi2.tre")
+  tree <- read.tree(here::here("phylogeny/", "drosi2.tre"))
 
 # Plot the tree
   plot(tree, cex = 0.2)
@@ -52,10 +52,10 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
   tree2 <- force.ultrametric(tree, method = "extend")
 
 # Grab out data
-   data <- read.csv("./data/drosi_data.csv")
+   data <- read.csv(here::here("data", "drosi_data.csv"))
 
 # functions
-  source("./R/func.R")
+  source(here::here("R", "func.R"))
   t <- tree_checks(tree2, data = data, dataCol = "species", type = "check")
   data <- data %>% mutate(species = gsub(" ", "", species),
                           phylo = species,
@@ -68,7 +68,6 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
   tree3$node.label <- NULL
 
 ```
-
 
 ```{r, models}
 
@@ -94,13 +93,13 @@ if(rerun){
   prior2 = list(R = list(V = diag(3), nu=1.002))
   mcmcglmm_model_z_trans_nophylo <- MCMCglmm::MCMCglmm(cbind(z_ctmax, z_cfts, z_tdt_z) ~ -1 + trait, rcov = ~us(trait):units, pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior2, pl = TRUE, pr = TRUE, data = data)
   
-  saveRDS(mcmcglmm_model, file = "./output/model/mcmcglmm_model")
-  saveRDS(mcmcglmm_model_z_trans, file = "./output/model/mcmcglmm_model_z_trans")
-  saveRDS(mcmcglmm_model_z_trans_nophylo, file = "./output/model/mcmcglmm_model_z_trans_nophylo")
+  saveRDS(mcmcglmm_model, file =  here::here("output/model", "mcmcglmm_model"))
+  saveRDS(mcmcglmm_model_z_trans, file = here::here("output/model", "mcmcglmm_model_z_trans")) 
+  saveRDS(mcmcglmm_model_z_trans_nophylo, file =  here::here("output/model", "mcmcglmm_model_z_trans_nophylo")) 
 } else{
-                mcmcglmm_model <- readRDS("./output/model/mcmcglmm_model")
-        mcmcglmm_model_z_trans <- readRDS("./output/model/mcmcglmm_model_z_trans")
-mcmcglmm_model_z_trans_nophylo <- readRDS("./output/model/mcmcglmm_model_z_trans_nophylo")
+                mcmcglmm_model <- readRDS(here::here("output/model/", "mcmcglmm_model"))
+        mcmcglmm_model_z_trans <- readRDS(here::here("output/model/", "mcmcglmm_model_z_trans"))
+mcmcglmm_model_z_trans_nophylo <- readRDS(here::here("output/model/", "mcmcglmm_model_z_trans_nophylo"))
 }
 
 ```
@@ -160,6 +159,5 @@ mcmcglmm_model_z_trans_nophylo <- readRDS("./output/model/mcmcglmm_model_z_trans
 # We'll now plot the posterior distributions for each species.Obviously our 11 species with known data will have a much tighter distribution. You can see that in the plot. But the imputations are our 'best" guess based on the strong phylogenetic signal in the data. We can also always propagate the uncertainty across any subsequent analysis (like for example our micro-climate models)
   mcmc_areas(z[,1:15],prob = 0.8)
 ```
-
 
 ## References
