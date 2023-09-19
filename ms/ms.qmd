@@ -15,7 +15,7 @@ execute:
   error: false
   include: true
 crossref:
-  fig-title: 'Figure'
+  fig-title: '**Figure**'
   fig-labels: arabic
   title-delim: "-"
   fig-prefix: "Figure"
@@ -38,21 +38,26 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
 ##################################
     pacman::p_load(tidyverse,  metafor, flextable,  patchwork, ggtree, ape, phytools, viridis, MCMCglmm, brms, latex2exp, orchaRd, multcomp, bayesplot, here)
 
-```
-
-```{r, tree}
+##################################
+# Loading tree and data
+##################################
 # Bring in the fly tree
   tree <- read.tree(here::here("phylogeny/", "drosi2.tre"))
 
-# Plot the tree
-  plot(tree, cex = 0.2)
+# Grab our data
+   data <- read.csv(here::here("data", "drosi_data.csv"))
+```
+
+```{r, treesetup}
+#| label: treesetup
+#| echo: false
+#| message: false
+#| include: false
+
 
 # Ultrametric?
   is.ultrametric(tree) # nope
   tree2 <- force.ultrametric(tree, method = "extend")
-
-# Grab out data
-   data <- read.csv(here::here("data", "drosi_data.csv"))
 
 # functions
   source(here::here("R", "func.R"))
@@ -70,7 +75,10 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
 ```
 
 ```{r, models}
-
+#| label: models
+#| echo: false
+#| include: false
+#| 
 ### MCMCglmm Bayesian models. Deals with missing data using data augmentation
 
 rerun = FALSE
@@ -105,7 +113,10 @@ mcmcglmm_model_z_trans_nophylo <- readRDS(here::here("output/model/", "mcmcglmm_
 ```
 
 ```{r, posteriors}
-
+#| label: posteriors
+#| echo: false
+#| include: false
+#| 
 # Extract posterior estimates
   sol <- mcmcglmm_model$Sol
   vcv <- mcmcglmm_model$VCV
@@ -153,6 +164,14 @@ mcmcglmm_model_z_trans_nophylo <- readRDS(here::here("output/model/", "mcmcglmm_
       h2_z = phylo_z / (phylo_z + units_z)
       posterior.mode(h2_z)
       HPDinterval(h2_z)
+```
+
+```{r, fig-tree}
+#| label: fig-tree
+#| fig-cap: "Phylogenetic relationships among `r length(tree$tip.label)` *Drosophila* species."
+
+# Plot the tree
+  plot(tree, cex = 0.2)
 ```
 
 ```{r, posteriorsz}
