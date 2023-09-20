@@ -233,4 +233,14 @@ mcmcglmm_model_z_trans_nophylo <- readRDS(here::here("output/model/", "mcmcglmm_
   mcmc_areas(z[,1:15],prob = 0.8)
 ```
 
+## Box 1 – Thermal Death Time framework case studies
+
+Parameters from Thermal Death Time (TDT) curves provide a powerful tool for understanding the thermal sensitivity of organisms. Comparative approaches using such data can provide a way for us to evaluate differences in population and species sensitivity, and identify the key ecological and life-history traits that increase vulnerability to heat stress. Nonetheless, while static measures of thermal tolerance (e.g., $CT_{max}$) are widespread, parameters from TDT curves  are much less frequently estimated. In addition, we have a poor understanding of how dynamic (TDT) and static ($CT_{max}$) lethal measures correlate with each other and with sub-lethal measures of damage, such as critical fertility limits (CFLs). Identifying the correlation between lethal and sub-lethal limits can provide powerful ways to further clarify species vulnerability to heat stress that might lead to population extinction well before mortality is identified. 
+
+A number of significance challenges imped are ability to take the TDT and sub-lethal frameworks into a comparative context. First, ethical, conservation, and logistical challenges limit our ability to measure and estimate key parameters for many species, creating significant gaps in our knowledge across the tree of life. Second, while there has been a focus on species-level responses, population-level information is seldom incoperated into comparative frameworks. 
+
+Powerful multivariate hierachical models (i.e., multi-response models) are capable of dealing with missing data, and provide a means by which multiple physiological thermal tolerance measures can be simultaneously modelled. When used in conjunction with phylogenetic information across species and/or populations, such modelling approaches can provide informed estimates for species missing data and explicitly estimate the covariance between tolerance measures while accounting for their uncertainty. Such insight that can be used to inform policy and conservation-related decision making. 
+
+Using a well studied taxonomic group, the *Drosophila* clade, we demonstrate how such an analytical approach can inform on these significant questions. 
+
 ## References
