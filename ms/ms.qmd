@@ -90,8 +90,14 @@ We can have a look at each new species' TDT curves collected by Vanessa (@fig-td
 ```{r, tbl-1}
 #| label: tbl-1
 #| tbl-cap: Estimated parameters for each of the 8 new species. 
-flextable(txt) %>% align(align = "center", part = "all") %>% font(fontname="Times", part = "body") %>% 
-    font(fontname="Times", part = "header")  %>%  autofit()
+labels <- c("Species", "Slope", "CTMax")
+
+flextable(txt) %>% 
+    align(align = "center", part = "all") %>% 
+    font(fontname="Times", part = "body") %>% 
+    font(fontname="Times", part = "header")  %>%  
+    flextable::compose(i = 1, j = 1:3, part = "header", value= as_paragraph(as_b(labels))) %>% 
+    autofit()  
 ```
 
 ```{r, fig-tdt2}
