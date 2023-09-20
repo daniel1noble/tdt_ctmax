@@ -19,3 +19,27 @@ tree_checks <- function(data, tree, dataCol, type = c("checks", "prune")){
     return(ape::drop.tip(tree, species_list1))
   }
 }
+
+
+#' @title TDT Curve Calculation
+#' @description This function calculates the slope and CTmax from a TDT curve fit using a linear regression
+#' @param data A dataframe containing the data  
+#' @return A data frame containing the slope and CTmax
+#' @export 
+tdt_calc <- function(data){
+
+  # Fit a linear regression to the data
+      fit <- lm(log10(t_coma) ~ assay_temp, data = data)
+  
+  # Extract the slope and CTmax
+   slope <- -1/fit$coefficients[2]
+   CTmax <- -coef(fit)[1] / coef(fit)[2]
+  
+  # Return the slope and CTmax
+    return(data.frame(z = slope, CTmax = CTmax))
+
+}
+
+#' @title TDT Curve plot
+#' 
+#' 
