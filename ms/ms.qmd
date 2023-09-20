@@ -36,7 +36,13 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
 ##################################
 # Loading packages & Functions
 ##################################
-    pacman::p_load(tidyverse,  metafor, flextable,  patchwork, ggtree, ape, phytools, viridis, MCMCglmm, brms, latex2exp, orchaRd, multcomp, bayesplot, here)
+    pacman::p_load(tidyverse,  metafor, flextable,  patchwork, ggtree, ape, phytools, viridis, MCMCglmm, brms, latex2exp, orchaRd, multcomp, bayesplot, here, readxl)
+
+##################################
+# Functions
+##################################
+
+  source(here::here("R", "func.R"))
 
 ##################################
 # Loading tree and data
@@ -48,12 +54,54 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
    data <- read.csv(here::here("data", "drosi_data.csv"))
 ```
 
+```{r, newspp}
+#| label: newspp
+#| echo: false
+#| message: false
+#| include: false
+
+# Load the data
+  spp <- read_excel(here::here("data", "tdt_data.xlsx"), sheet = "data")
+
+# Calcluate the TDT
+  tdt <- split(spp, spp$group) 
+
+# Calculations
+  txt <- plyr::ldply(lapply(tdt, function(x) tdt_calc(data = x)))
+
+```
+
+We can have a look at each new species' TDT curves collected by Vanessa (@fig-tdt). We can also use the data to calculate the TDT curve (slope) and $CT_{max}$ for each species (@tbl-1). 
+
+```{r, fig-tdt}
+#| label: fig-tdt
+#| fig-cap: TDT curves for each species. The x-axis is temperature and the y-axis is the log10 of the time to coma. 
+#| message: false
+#| echo: false
+
+# Lets have a look at the data
+  #ggplot2::ggplot(data, ggplot2::aes(x = assay_temp, y = log10(t_coma), colour = group)) + ggplot2::geom_point() + #ggplot2::facet_wrap(~group, nrow = 2, ncol = 4) +ggplot2::labs(x = "Temperature", y = "log 10 Coma Time") + #ggplot2::theme_bw() 
+  
+# Fecet wrap doesn't seem to want to work
+  par(mfrow=c(2,4))
+  invisible(lapply(tdt, function(x) plot(log10(x$t_coma) ~ x$assay_temp,  main= unique(x$group), xlab = "Temperature", ylab = "log 10 Coma Time", pch = 16, col = "black")))
+```
+
+```{r, tbl-1}
+#| label: tbl-1
+#| tbl-cap: Estimated parameters for each of the 8 new species. 
+flextable(txt) %>% align(align = "center", part = "all") %>% font(fontname="Times", part = "body") %>% 
+    font(fontname="Times", part = "header")  %>%  autofit()
+```
+
+```{r, fig-tdt2}
+```
+
 ```{r, treesetup}
 #| label: treesetup
 #| echo: false
 #| message: false
 #| include: false
-
 
 # Ultrametric?
   is.ultrametric(tree) # nope
