@@ -61,7 +61,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
 #| include: false
 
 # Load the data
-  spp <- read_csv(here::here("data", "tdt_curves.csv"), sheet = "data")
+  spp <- read_csv(here::here("data", "tdt_curves.csv"))
 
 # Calcluate the TDT
   tdt <- split(spp, spp$group) 
