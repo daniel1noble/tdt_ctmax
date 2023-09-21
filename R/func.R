@@ -40,6 +40,43 @@ tdt_calc <- function(data){
 
 }
 
-#' @title TDT Curve plot
-#' 
-#' 
+#' @title extract_blups
+#' @description This function extracts the BLUPs from a mixed model
+#' @param sol A matrix containing the BLUPs
+#' @param trait A string. The trait to be analysed. 
+#' @return A list containing the phylogenetic BLUPs and the species BLUPs
+extract_blups <- function(sol, trait){
+  animal <- paste0("trait", trait, ".animal")
+  species <- paste0("trait", trait, ".species")
+
+  phy <- sol[, grep(animal, colnames(sol))]
+  phy <- phy[,-grep("Node", colnames(phy))]
+
+  spp <- sol[, grep(species, colnames(sol))]
+
+  return(list(phy = phy, spp = spp))
+
+}
+  
+
+#' @title predict_accuracy
+#' @description This function calculates the accuracy of the model predictions compared to the data where we know the actual values
+#' @param data A dataframe containing the data
+#' @param blups A list containing the phylogenetic BLUPs and the species BLUPs
+#' @param trait The trait to be analysed. Note that this is not a string, but the name of the trait
+#' @return A data frame containing the actual and predicted values for a given trait
+predict_accuracy <- function(data, blups, trait){
+  # Get actual data
+  known <- data %>% filter(!is.na({{trait}})) %>% dplyr::select(species, {{trait}}) %>% distinct()
+  
+  # Get estimated data
+    est <- apply(blups, 2, function(x) median(x))
+    est <- est[which(colnames(blups) %in% known$species)]
+    est <- data.frame(est)
+    est$species <- row.names(est)
+
+  # Join the two
+  check <- left_join(known, est, by = "species")
+
+  return(check)
+}
