@@ -36,7 +36,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
 ##################################
 # Loading packages & Functions
 ##################################
-    pacman::p_load(tidyverse,  metafor, flextable,  patchwork, ggtree, ape, phytools, viridis, MCMCglmm, brms, latex2exp, orchaRd, multcomp, bayesplot, here, readxl)
+    pacman::p_load(tidyverse,  metafor, flextable,  patchwork, ggtree, ape, phytools, viridis, MCMCglmm, brms, latex2exp, orchaRd, multcomp, bayesplot, here, readxl, magick)
 
 ##################################
 # Functions
@@ -300,7 +300,7 @@ $$
 
 Models including phylogeny were better supported than models without phylogeny ($\Delta DIC$ = `r mcmcglmm_model_z_trans_nophylo$DIC - mcmcglmm_model_z_trans$DIC`), with all traits exhibiting a moderate to strong phylogenetic signal indicating evolutionary conservatism in heat tolerance (Phylogenetic $H^2$: $CT_{max}$ – `r posterior.mode(h2_ctmax)`, 95% CI: `r HPDinterval(h2_ctmax)[,"lower"]` to `r HPDinterval(h2_ctmax)[,"upper"]`; $z^{TDT}$ – `r posterior.mode(h2_z)`, 95% CI: `r HPDinterval(h2_z)[,"lower"]` to `r HPDinterval(h2_z)[,"upper"]`; CFLs – `r posterior.mode(h2_cfls)`, 95% CI: `r HPDinterval(h2_cfls)[,"lower"]` to `r HPDinterval(h2_cfls)[,"upper"]`). Nonetheless, there was within species variation ($I^2_{species}$: $CT_{max}$ – `r posterior.mode(spp_ctmax)`, 95% CI: `r HPDinterval(spp_ctmax)[,"lower"]` to `r HPDinterval(spp_ctmax)[,"upper"]`; $z^{TDT}$ – `r posterior.mode(spp_z)`, 95% CI: `r HPDinterval(spp_z)[,"lower"]` to `r HPDinterval(spp_z)[,"upper"]`; CFLs – `r posterior.mode(spp_cfls)`, 95% CI: `r HPDinterval(spp_cfls)[,"lower"]` to `r HPDinterval(spp_cfls)[,"upper"]`). 
 
-##### Evolutionary relationships can help understand thermal tolerance in species lacking thermal tolerance data
+##### Evolutionary relationships can help understand thermal tolerance in species lacking data
 The model predicted known data reasonably well for most traits (correlation between known values and values estimated from the model: $z^{TDT}$ – `r cor.test(check_z$trait, check_z$est)$estimate`, 95% CI: `r cor.test(check_z$trait, check_z$est)$conf.int[1]` to `r cor.test(check_z$trait, check_z$est)$conf.int[2]`, p < 0.001; $CT_{max}$ – `r cor.test(check_ctmax$trait, check_ctmax$est)$estimate`, 95% CI: `r cor.test(check_ctmax$trait, check_ctmax$est)$conf.int[1]` to `r cor.test(check_ctmax$trait, check_ctmax$est)$conf.int[2]`, p < 0.001; CFLs – `r cor.test(check_cfls$trait, check_cfls$est)$estimate`, 95% CI: `r cor.test(check_cfls$trait, check_cfls$est)$conf.int[1]` to `r cor.test(check_cfls$trait, check_cfls$est)$conf.int[2]`, p < 0.001), suggesting that even this basic model could be used to provide sensible quantitative measures for *Drosophila* species without heat tolerance estimates. While modelling approaches such as these are not a replacement for actual empirical data, they could be used to provide informed judgements on thermal tolerance in the absence of such information, but should be tested (using cross-validation) and refined when necessary.
 
 ##### Static lethal limits are evolutionarily correlated with sub-lethal limits in *Drosophilids*
@@ -309,20 +309,30 @@ Interestingly, there was a reasonably strong phylogenetic correlation between $C
 ```{r, fig-treesub}
 #| label: fig-treesub
 #| fig-cap: Species included in the dataset and their phylogenetic relationships.
+#| echo: false
+#| message: false
+
  
 # prune tree
 t <- tree_checks(data, tree, dataCol = "species", type = "prune")
 
 layout.matrix <- matrix(c(1, 1, 1, 2,3,4), nrow = 3, ncol = 2) # Phylogeny takes up 3 panels (plot = 1) and the others take up a single panel. 
 
-layout(mat = layout.matrix) 
-# Plot 1
-plot(t, type = "tidy", cex = 0.65)
+rerun = FALSE
+if(rerun){
+  pdf(height = 10.2, width = 8.1, file = here::here("output", "fig", "fig1.pdf"))
+  layout(mat = layout.matrix) 
+  # Plot 1
+  plot(t, type = "tidy", cex = 0.65)
 
-# Plot 2
-plot(check_z$trait ~ check_z$est, ylab = "TDT Slope (z)", xlab = "Estimated TDT Slope", pch = 16, cex = 3, cex.lab = 2)
-abline(a = 0, b = 1, col = "red")
-
+  # Plot 2
+  plot(check_z$trait ~ check_z$est, ylab = "TDT Slope (z)", xlab = "Estimated TDT Slope", pch = 16, cex = 3, cex.lab = 1.4)
+  abline(a = 0, b = 1, col = "red")
+  dev.off()
+} else {
+  fig <- magick::image_read(here::here("output", "fig", "fig1.pdf"))
+  plot(fig)
+}
 ```
 
 ## References
