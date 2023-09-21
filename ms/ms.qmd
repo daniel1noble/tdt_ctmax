@@ -206,11 +206,11 @@ check_ctmax <- predict_accuracy(data, ctmax, trait = ctmax)
  check_cfls <- predict_accuracy(data, cfts, trait = cfts) # Something wrong here.
    
   # Plot the data
-    plot(check_z$tdt_z ~ check_z$est, ylab = "True Slope (z)", xlab = "Estimated Slope", pch = 16, cex = 2)
+    plot(check_z$trait ~ check_z$est, ylab = "True Slope (z)", xlab = "Estimated Slope", pch = 16, cex = 2)
     abline(a = 0, b = 1, col = "red")
-    plot(check_ctmax$ctmax ~ check_ctmax$est, ylab = "True CTmax", xlab = "Estimated CTmax", pch = 16, cex = 2)
+    plot(check_ctmax$trait ~ check_ctmax$est, ylab = "True CTmax", xlab = "Estimated CTmax", pch = 16, cex = 2)
     abline(a = 0, b = 1, col = "red")
-    plot(check_cfls$cfts ~ check_cfls$est, ylab = "True CFLs", xlab = "Estimated CFLs", pch = 16, cex = 2)
+    plot(check_cfls$trait ~ check_cfls$est, ylab = "True CFLs", xlab = "Estimated CFLs", pch = 16, cex = 2)
     abline(a = 0, b = 1, col = "red")
 
   # Check phylogeneic signal. Need to think about the covariance here. 
@@ -220,17 +220,25 @@ check_ctmax <- predict_accuracy(data, ctmax, trait = ctmax)
       units_ctmax <- vcv[,"traitctmax:traitctmax.units"]
       
       h2_ctmax = phylo_ctmax / (phylo_ctmax + spp_ctmax + units_ctmax)
+      spp_ctmax <- spp_ctmax / (phylo_ctmax + spp_ctmax + units_ctmax)
       posterior.mode(h2_ctmax)
       HPDinterval(h2_ctmax)
-    
+
+      posterior.mode(spp_ctmax)
+      HPDinterval(spp_ctmax)
+
     # CFL - Yes
       phylo_cfls <- vcv[,"traitcfts:traitcfts.animal"]
         spp_cfls <- vcv[,"traitcfts:traitcfts.species"]
       units_cfls <- vcv[,"traitcfts:traitcfts.units"]
       
       h2_cfls = phylo_cfls / (phylo_cfls + spp_cfls + units_cfls)
+     spp_cfls = spp_cfls / (phylo_cfls + spp_cfls + units_cfls)
       posterior.mode(h2_cfls)
       HPDinterval(h2_cfls)
+
+       posterior.mode(spp_cfls)
+      HPDinterval(spp_cfls)
       
     # z - Yes
       phylo_z <- vcv[,"traittdt_z:traittdt_z.animal"]
@@ -238,11 +246,31 @@ check_ctmax <- predict_accuracy(data, ctmax, trait = ctmax)
       units_z <- vcv[,"traittdt_z:traittdt_z.units"]
       
       h2_z = phylo_z / (phylo_z + spp_z + units_z)
+      spp_z = spp_z / (phylo_z + spp_z + units_z)
       posterior.mode(h2_z)
       HPDinterval(h2_z)
+
+      posterior.mode(spp_z)
+      HPDinterval(spp_z)
 ```
 
+```{r, correlations}
 
+# Estimate phylogenetic correlatons between traits. 
+    # Trait variances 
+   phylocor_ctmax_tdt <- phylo_corrs(vcv, trait1 = "tdt_z", trait2 = "ctmax")
+   posterior.mode(phylocor_ctmax_tdt)
+   HPDinterval(phylocor_ctmax_tdt)
+
+   phylocor_ctmax_cfls <- phylo_corrs(vcv, trait1 = "cfts", trait2 = "ctmax")
+   posterior.mode(phylocor_ctmax_cfls)
+   HPDinterval(phylocor_ctmax_cfls)
+
+  phylocor_tdt_cfls <- phylo_corrs(vcv, trait1 = "tdt_z", trait2 = "cfts")
+   posterior.mode(phylocor_tdt_cfls)
+   HPDinterval(phylocor_tdt_cfls)
+
+```
 ```{r, posteriorsz}
 # We'll now plot the posterior distributions for each species.Obviously our 11 species with known data will have a much tighter distribution. You can see that in the plot. But the imputations are our 'best" guess based on the strong phylogenetic signal in the data. We can also always propagate the uncertainty across any subsequent analysis (like for example our micro-climate models)
   mcmc_areas(z[,1:15],prob = 0.8)
@@ -268,7 +296,11 @@ $$
 \end{bmatrix} = u_{i,k} + p_{i,k} + sp_{i,k} + e_{i,k}
 $$
 
-Models including phylogeny were better supported than models without phylogeny ($\Delta DIC$ = `r mcmcglmm_model_z_trans_nophylo$DIC - mcmcglmm_model_z_trans$DIC`), with all traits exhibiting a moderate to strong phylogenetic signal (Phylogenetic $H^2$: $CT_{max}$ – `r posterior.mode(h2_ctmax)`, 95% CI: `r HPDinterval(h2_ctmax)[,"lower"]` to `r HPDinterval(h2_ctmax)[,"upper"]`; $z^{TDT}$ – `r posterior.mode(h2_z)`, 95% CI: `r HPDinterval(h2_z)[,"lower"]` to `r HPDinterval(h2_z)[,"upper"]`; CFLs – `r posterior.mode(h2_cfls)`, 95% CI: `r HPDinterval(h2_cfls)[,"lower"]` to `r HPDinterval(h2_cfls)[,"upper"]`). The model predicted known data reasonably well for most traits (correlation between actual and estimated data: $z^{TDT}$ – `r cor.test(check_z$tdt_z, check_z$est)$estimate`, 95% CI: `r cor.test(check_z$tdt_z, check_z$est)$conf.int[1]` to `r cor.test(check_z$tdt_z, check_z$est)$conf.int[2]`, p < 0.001).
+Models including phylogeny were better supported than models without phylogeny ($\Delta DIC$ = `r mcmcglmm_model_z_trans_nophylo$DIC - mcmcglmm_model_z_trans$DIC`), with all traits exhibiting a moderate to strong phylogenetic signal indicating evolutionary conservatism in heat tolerance (Phylogenetic $H^2$: $CT_{max}$ – `r posterior.mode(h2_ctmax)`, 95% CI: `r HPDinterval(h2_ctmax)[,"lower"]` to `r HPDinterval(h2_ctmax)[,"upper"]`; $z^{TDT}$ – `r posterior.mode(h2_z)`, 95% CI: `r HPDinterval(h2_z)[,"lower"]` to `r HPDinterval(h2_z)[,"upper"]`; CFLs – `r posterior.mode(h2_cfls)`, 95% CI: `r HPDinterval(h2_cfls)[,"lower"]` to `r HPDinterval(h2_cfls)[,"upper"]`). Nonetheless, there was within species variation ($I^2_{species}$: $CT_{max}$ – `r posterior.mode(spp_ctmax)`, 95% CI: `r HPDinterval(spp_ctmax)[,"lower"]` to `r HPDinterval(spp_ctmax)[,"upper"]`; $z^{TDT}$ – `r posterior.mode(spp_z)`, 95% CI: `r HPDinterval(spp_z)[,"lower"]` to `r HPDinterval(spp_z)[,"upper"]`; CFLs – `r posterior.mode(spp_cfls)`, 95% CI: `r HPDinterval(spp_cfls)[,"lower"]` to `r HPDinterval(spp_cfls)[,"upper"]`). 
+
+The model predicted known data reasonably well for most traits (correlation between known values and values estimated from the model: $z^{TDT}$ – `r cor.test(check_z$trait, check_z$est)$estimate`, 95% CI: `r cor.test(check_z$trait, check_z$est)$conf.int[1]` to `r cor.test(check_z$trait, check_z$est)$conf.int[2]`, p < 0.001; $CT_{max}$ – `r cor.test(check_ctmax$trait, check_ctmax$est)$estimate`, 95% CI: `r cor.test(check_ctmax$trait, check_ctmax$est)$conf.int[1]` to `r cor.test(check_ctmax$trait, check_ctmax$est)$conf.int[2]`, p < 0.001; CFLs – `r cor.test(check_cfls$trait, check_cfls$est)$estimate`, 95% CI: `r cor.test(check_cfls$trait, check_cfls$est)$conf.int[1]` to `r cor.test(check_cfls$trait, check_cfls$est)$conf.int[2]`, p < 0.001), suggesting that even this basic model could be used to provide sensible quantitative measures for *Drosophila* species without heat tolerance estimates. While modelling approaches such as these are not a replacement for actual empirical data, they could be used to provide informed judgements on thermal tolerance in the absence of such information, but should be tested (using cross-validation) and refined when necessary.
+
+Interestingly, there was a reasonably strong phylogenetic correlation between $CT_{max}$ and critical fertility limits in *Drosophilids* (r = `r posterior.mode(phylocor_ctmax_cfls)`, 95% CI: `r HPDinterval(phylocor_ctmax_cfls)[,"lower"]` to `r HPDinterval(phylocor_ctmax_cfls)[,"upper"]`), but not between $CT_{max}$, CFLs and the slope from TDT curves (cor($CT_{max}$, $z^{TDT}$) = `r posterior.mode(phylocor_ctmax_tdt)`, 95% CI: `r HPDinterval(phylocor_ctmax_tdt)[,"lower"]` to `r HPDinterval(phylocor_ctmax_tdt)[,"upper"]`; cor(CFLs, $z^{TDT}$) = `r posterior.mode(phylocor_tdt_cfls)`, 95% CI: `r HPDinterval(phylocor_tdt_cfls)[,"lower"]` to `r HPDinterval(phylocor_tdt_cfls)[,"upper"]`). These results suggest that sub-lethal measures, such as CFLs strongly coincide with a species' upper lethal limit. It would be interesting to understand if this is a general phenomena across more taxonomic groups. 
 
 ```{r, fig-treesub}
 #| label: fig-treesub
@@ -284,7 +316,7 @@ layout(mat = layout.matrix)
 plot(t, type = "tidy", cex = 0.65)
 
 # Plot 2
-plot(check_z$tdt_z ~ check_z$est, ylab = "TDT Slope (z)", xlab = "Estimated TDT Slope", pch = 16, cex = 3, cex.lab = 2)
+plot(check_z$trait ~ check_z$est, ylab = "TDT Slope (z)", xlab = "Estimated TDT Slope", pch = 16, cex = 3, cex.lab = 2)
 abline(a = 0, b = 1, col = "red")
 
 ```
