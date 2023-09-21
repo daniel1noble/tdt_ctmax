@@ -237,20 +237,20 @@ mcmcglmm_model_z_trans_nophylo <- readRDS(here::here("output/model/", "mcmcglmm_
 
 Parameters from Thermal Death Time (TDT) curves provide a powerful tool for understanding the thermal sensitivity of organisms. Comparative approaches using such data can provide a way for us to evaluate differences in population and species sensitivity, and identify the key ecological and life-history traits that increase vulnerability to heat stress. Nonetheless, while static measures of thermal tolerance (e.g., $CT_{max}$) are widespread, parameters from TDT curves  are much less frequently estimated. In addition, we have a poor understanding of how dynamic (TDT) and static ($CT_{max}$) lethal measures correlate with each other and with sub-lethal measures of damage, such as critical fertility limits (CFLs). Identifying the correlation between lethal and sub-lethal limits can provide powerful ways to further clarify species vulnerability to heat stress that might lead to population extinction well before mortality is identified. 
 
-A number of significance challenges imped are ability to take the TDT and sub-lethal frameworks into a comparative context. First, ethical, conservation, and logistical challenges limit our ability to measure and estimate key parameters for many species, creating significant gaps in our knowledge across the tree of life. Second, while there has been a focus on species-level responses, population-level information is seldom incoperated into comparative frameworks limiting our ability to decompose sources of variance. 
+A number of significant challenges imped are ability to take the TDT and sub-lethal frameworks into a comparative context. First, ethical, conservation, and logistical challenges limit our ability to measure and estimate key parameters for many species, creating significant gaps in our knowledge across the tree of life. Second, while there has been a focus on species-level responses, population-level information is seldom incoperated into comparative frameworks limiting our ability to decompose sources of variance [@Pottier2023]. 
 
 Powerful multivariate hierachical models (i.e., multi-response models) are capable of dealing with missing data, and provide a means by which multiple physiological thermal tolerance measures can be modelled simultaneously [@Noble2021; @Pottier2023]. When used in conjunction with an understanding of the phylogenetic relationships among species and/or populations, such modelling approaches can provide informed estimates for species missing data and explicitly estimate the covariance between tolerance measures while accounting for their uncertainty. Such insight that can be used to inform policy and conservation-related decision making for species with little to no data. 
 
 #### Application of Multivariate Comparative Approaches using Thermal Tolerance Measures: A case study using *Drosophilids*
 
-We integrated static lethal limits ($CT_{max}$) collected by @Heerwaarden2021 and XX with dynamic lethal limit measures from TDT curces [i.e., slope ($z^{TDT}$) and intercept ($CT_{max}^{TDT}$)] estimated by XX. We also collected data to estimate TDT curve parameters for eight additonal species following protocols outlined in @Orsted2022. Critical fertility limits for *Drosophilids* were compiled from @Parratt2021 and @Heerwaarden2021. These data were integrated with data on lethal limits at the species-level. When the same species were sampled multiple times we retained within species variation in models. We then fit the following model in *MCMCglmm* [@]:
+We integrated static lethal limits ($CT_{max}$) collected by @Heerwaarden2021 and XX with dynamic lethal limit measures from TDT curces [i.e., slope ($z^{TDT}$) and intercept ($CT_{max}^{TDT}$)] estimated by XX. We also collected data to estimate TDT curve parameters for eight additonal species following protocols outlined in @Orsted2022. Critical fertility limits for *Drosophilids* were compiled from @Parratt2021 and @Heerwaarden2021. These data were integrated with data on lethal limits at the species-level. When the same species were sampled multiple times we retained within species variation in models. We then fit the following model in R (vers. `r paste0(R.Version()$major, ".", R.Version()$minor)`)[@R2023] with the package *MCMCglmm* (vers. `r utils::packageVersion("MCMCglmm")`) [@Hadfield2010]:
 
 $$
 \begin{bmatrix}
  CT_{max} \\
  CT_{max}^{TDT} \\
  z^{TDT} \\
- CFL
+ CFLs
 \end{bmatrix} = u_{i,k} + p_{i,k} + sp_{i,k} + e_{i,k}
 $$
 
