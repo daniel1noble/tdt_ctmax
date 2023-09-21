@@ -66,8 +66,9 @@ extract_blups <- function(sol, trait){
 #' @param trait The trait to be analysed. Note that this is not a string, but the name of the trait
 #' @return A data frame containing the actual and predicted values for a given trait
 predict_accuracy <- function(data, blups, trait){
-  # Get actual data
-  known <- data %>% filter(!is.na({{trait}})) %>% dplyr::select(species, {{trait}}) %>% distinct()
+  # Get actual data. Note that we have species replicated multiple times. Stick to among species level so need to average the replicate populations of a given species. BLUPs are only estimated for a single species. 
+  
+  known <- data %>% filter(!is.na({{trait}})) %>% dplyr::select(species, {{trait}}) %>% group_by(species) %>% summarise(trait = mean({{trait}}))
   
   # Get estimated data
     est <- apply(blups, 2, function(x) median(x))
