@@ -128,6 +128,14 @@ flextable(txt) %>%
 
 ```
 
+```{r, fig-tree}
+#| label: fig-tree
+#| fig-cap: "Phylogenetic relationships among `r length(tree$tip.label)` *Drosophila* species."
+
+# Plot the tree
+  plot(tree, cex = 0.2, type = "radial")
+```
+
 ```{r, models}
 #| label: models
 #| echo: false
@@ -138,22 +146,24 @@ flextable(txt) %>%
 rerun = FALSE
 if(rerun){
     prior = list(R = list(V = diag(3), nu=1.002), 
-               G = list(G1=list(V = diag(3), nu = 1.002)))
+               G = list(G1=list(V = diag(3), nu = 1.002),
+                        G2=list(V = diag(3), nu = 1.002)))
   
   data$animal = data$phylo
   
-  mcmcglmm_model <- MCMCglmm::MCMCglmm(cbind(ctmax, cfts, tdt_z) ~ -1 + trait, random = ~us(trait):animal, rcov = ~us(trait):units ,pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior, pl = TRUE, pr = TRUE, data = data)
+  mcmcglmm_model <- MCMCglmm::MCMCglmm(cbind(ctmax, cfts, tdt_z) ~ -1 + trait, random = ~us(trait):animal + us(trait):species, rcov = ~us(trait):units ,pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior, pl = TRUE, pr = TRUE, data = data)
   
   # We'll also z-transform to make the correlation easier to calculate. 
   data <- data %>% mutate(z_ctmax = scale(ctmax),
                            z_cfts = scale(cfts),
                           z_tdt_z = scale(tdt_z))
   
-  mcmcglmm_model_z_trans <- MCMCglmm::MCMCglmm(cbind(z_ctmax, z_cfts, z_tdt_z) ~ -1 + trait, random = ~us(trait):animal, rcov = ~us(trait):units, pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior, pl = TRUE, pr = TRUE, data = data)
+  mcmcglmm_model_z_trans <- MCMCglmm::MCMCglmm(cbind(z_ctmax, z_cfts, z_tdt_z) ~ -1 + trait, random = ~us(trait):animal + us(trait):species, rcov = ~us(trait):units, pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior, pl = TRUE, pr = TRUE, data = data)
   
   # Ditch phylogeny to see if there is support for including it or not. DIC is WAY lower for phylogenetic model, so good to include it.
-  prior2 = list(R = list(V = diag(3), nu=1.002))
-  mcmcglmm_model_z_trans_nophylo <- MCMCglmm::MCMCglmm(cbind(z_ctmax, z_cfts, z_tdt_z) ~ -1 + trait, rcov = ~us(trait):units, pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior2, pl = TRUE, pr = TRUE, data = data)
+  prior2 = list(R = list(V = diag(3), nu=1.002), 
+               G = list(G1=list(V = diag(3), nu = 1.002)))
+  mcmcglmm_model_z_trans_nophylo <- MCMCglmm::MCMCglmm(cbind(z_ctmax, z_cfts, z_tdt_z) ~ -1 + trait, random = ~us(trait):species, rcov = ~us(trait):units, pedigree=tree3,burnin=1000, nitt = 300000, thin = 5, family = rep("gaussian", 3), prior = prior2, pl = TRUE, pr = TRUE, data = data)
   
   saveRDS(mcmcglmm_model, file =  here::here("output/model", "mcmcglmm_model"))
   saveRDS(mcmcglmm_model_z_trans, file = here::here("output/model", "mcmcglmm_model_z_trans")) 
@@ -176,57 +186,62 @@ mcmcglmm_model_z_trans_nophylo <- readRDS(here::here("output/model/", "mcmcglmm_
   vcv <- mcmcglmm_model$VCV
 
 # Extract the estimated / imputed Z for each species, but drop internal ancestral nodes
-  z_blups <- sol[, grep("traittdt_z.animal", colnames(sol))]
-  z_blups <- z_blups[,-grep("Node", colnames(z_blups))]
-  head(z_blups)
-
+    z_BLUPS <- extract_blups(sol, trait ="tdt_z")
+ctmax_blups <- extract_blups(sol, trait ="ctmax")
+  cfts_blups <- extract_blups(sol, trait ="cfts")
+  
 # Remember that these are BLUPs. They are deviations from the intercept. So, to get back to the z we need to add the intercept to each of them.
-  z <- z_blups + sol[, "traittdt_z"]
+      z <- z_BLUPS[["phy"]] + z_BLUPS[["spp"]] + sol[, "traittdt_z"]
+  ctmax <- ctmax_blups[["phy"]] + ctmax_blups[["spp"]]+ sol[, "traitctmax"]
+   cfts <- cfts_blups[["phy"]] + cfts_blups[["spp"]]+ sol[, "traitcfts"]
 
 # Clean up names so they are just species names
-  colnames(z) <- gsub("traittdt_z.animal.", "", colnames(z))
+      colnames(z) <- gsub("traittdt_z.animal.", "", colnames(z))
+  colnames(ctmax) <- gsub("traitctmax.animal.", "", colnames(ctmax))
+   colnames(cfts) <- gsub("traitcfts.animal.", "", colnames(cfts))
 
 # Have a look at how well the model gets the actual data correct.
-  z_known <- data %>% filter(!is.na(tdt_z)) %>% dplyr::select(species, tdt_z) %>% distinct()
-    z_est <- apply(z, 2, function(x) median(x))
-    z_est <- z_est[which(colnames(z) %in% z_known$species)]
-    z_est <- data.frame(z_est)
-    z_est$species <- row.names(z_est)
-  check_z <- left_join(z_known, z_est, by = "species")
+    check_z <- predict_accuracy(data, z, trait = tdt_z)
+check_ctmax <- predict_accuracy(data, ctmax, trait = ctmax)
+ check_cfls <- predict_accuracy(data, cfts, trait = cfts) # Something wrong here.
+   
+  # Plot the data
+    plot(check_z$tdt_z ~ check_z$est, ylab = "True Slope (z)", xlab = "Estimated Slope", pch = 16, cex = 2)
+    abline(a = 0, b = 1, col = "red")
+    plot(check_ctmax$ctmax ~ check_ctmax$est, ylab = "True CTmax", xlab = "Estimated CTmax", pch = 16, cex = 2)
+    abline(a = 0, b = 1, col = "red")
+    plot(check_cfls$cfts ~ check_cfls$est, ylab = "True CFLs", xlab = "Estimated CFLs", pch = 16, cex = 2)
+    abline(a = 0, b = 1, col = "red")
 
   # Check phylogeneic signal. Need to think about the covariance here. 
     # CTMax - Yes
       phylo_ctmax <- vcv[,"traitctmax:traitctmax.animal"]
+        spp_ctmax <- vcv[,"traitctmax:traitctmax.species"]
       units_ctmax <- vcv[,"traitctmax:traitctmax.units"]
       
-      h2_ctmax = phylo_ctmax / (phylo_ctmax + units_ctmax)
+      h2_ctmax = phylo_ctmax / (phylo_ctmax + spp_ctmax + units_ctmax)
       posterior.mode(h2_ctmax)
       HPDinterval(h2_ctmax)
     
     # CFL - Yes
       phylo_cfls <- vcv[,"traitcfts:traitcfts.animal"]
+        spp_cfls <- vcv[,"traitcfts:traitcfts.species"]
       units_cfls <- vcv[,"traitcfts:traitcfts.units"]
       
-      h2_cfls = phylo_cfls / (phylo_cfls + units_cfls)
+      h2_cfls = phylo_cfls / (phylo_cfls + spp_cfls + units_cfls)
       posterior.mode(h2_cfls)
       HPDinterval(h2_cfls)
       
     # z - Yes
       phylo_z <- vcv[,"traittdt_z:traittdt_z.animal"]
+        spp_z <- vcv[,"traittdt_z:traittdt_z.species"]
       units_z <- vcv[,"traittdt_z:traittdt_z.units"]
       
-      h2_z = phylo_z / (phylo_z + units_z)
+      h2_z = phylo_z / (phylo_z + spp_z + units_z)
       posterior.mode(h2_z)
       HPDinterval(h2_z)
 ```
 
-```{r, fig-tree}
-#| label: fig-tree
-#| fig-cap: "Phylogenetic relationships among `r length(tree$tip.label)` *Drosophila* species."
-
-# Plot the tree
-  plot(tree, cex = 0.2)
-```
 
 ```{r, posteriorsz}
 # We'll now plot the posterior distributions for each species.Obviously our 11 species with known data will have a much tighter distribution. You can see that in the plot. But the imputations are our 'best" guess based on the strong phylogenetic signal in the data. We can also always propagate the uncertainty across any subsequent analysis (like for example our micro-climate models)
@@ -239,19 +254,39 @@ Parameters from Thermal Death Time (TDT) curves provide a powerful tool for unde
 
 A number of significant challenges imped are ability to take the TDT and sub-lethal frameworks into a comparative context. First, ethical, conservation, and logistical challenges limit our ability to measure and estimate key parameters for many species, creating significant gaps in our knowledge across the tree of life. Second, while there has been a focus on species-level responses, population-level information is seldom incoperated into comparative frameworks limiting our ability to decompose sources of variance [@Pottier2023]. 
 
-Powerful multivariate hierachical models (i.e., multi-response models) are capable of dealing with missing data, and provide a means by which multiple physiological thermal tolerance measures can be modelled simultaneously [@Noble2021; @Pottier2023]. When used in conjunction with an understanding of the phylogenetic relationships among species and/or populations, such modelling approaches can provide informed estimates for species missing data and explicitly estimate the covariance between tolerance measures while accounting for their uncertainty. Such insight that can be used to inform policy and conservation-related decision making for species with little to no data. 
+Powerful multivariate hierachical models (i.e., multi-response models) are capable of dealing with missing data, and provide a means by which multiple physiological thermal tolerance measures can be modelled simultaneously [@Noble2021; @Pottier2023]. When used in conjunction with an understanding of the phylogenetic relationships among species and/or populations, such modelling approaches can provide informed estimates for species missing data and explicitly estimate the covariance between tolerance measures while accounting for their uncertainty. Such insight can be used to inform policy and conservation-related decision making for species with little to no data. 
 
 #### Application of Multivariate Comparative Approaches using Thermal Tolerance Measures: A case study using *Drosophilids*
 
-We integrated static lethal limits ($CT_{max}$) collected by @Heerwaarden2021 and XX with dynamic lethal limit measures from TDT curces [i.e., slope ($z^{TDT}$) and intercept ($CT_{max}^{TDT}$)] estimated by XX. We also collected data to estimate TDT curve parameters for eight additonal species following protocols outlined in @Orsted2022. Critical fertility limits for *Drosophilids* were compiled from @Parratt2021 and @Heerwaarden2021. These data were integrated with data on lethal limits at the species-level. When the same species were sampled multiple times we retained within species variation in models. We then fit the following model in R (vers. `r paste0(R.Version()$major, ".", R.Version()$minor)`)[@R2023] with the package *MCMCglmm* (vers. `r utils::packageVersion("MCMCglmm")`) [@Hadfield2010]:
+We integrated static lethal limits ($CT_{max}$) collected by @Heerwaarden2021 and XX with dynamic lethal limit measures from TDT curces [i.e., slope ($z^{TDT}$) and intercept ($CT_{max}^{TDT}$)] estimated by XX. We also collected data to estimate TDT curve parameters for eight additonal species following protocols outlined in @Orsted2022. Critical fertility limits for *Drosophilids* were compiled from @Parratt2021 and @Heerwaarden2021. These data were integrated with data on lethal limits at the species-level. When the same species were sampled multiple times we retained within species variation in models. We then fit the following model in R (vers. `r paste0(R.Version()$major, ".", R.Version()$minor)`)[@R2023] with the package *MCMCglmm* (vers. `r utils::packageVersion("MCMCglmm")`), which uses data augmentation during model fittng to estimate missing data [@Hadfield2010]:
 
 $$
 \begin{bmatrix}
  CT_{max} \\
- CT_{max}^{TDT} \\
  z^{TDT} \\
  CFLs
 \end{bmatrix} = u_{i,k} + p_{i,k} + sp_{i,k} + e_{i,k}
 $$
+
+Models including phylogeny were better supported than models without phylogeny ($\Delta DIC$ = `r mcmcglmm_model_z_trans_nophylo$DIC - mcmcglmm_model_z_trans$DIC`), with all traits exhibiting a moderate to strong phylogenetic signal (Phylogenetic $H^2$: $CT_{max}$ – `r posterior.mode(h2_ctmax)`, 95% CI: `r HPDinterval(h2_ctmax)[,"lower"]` to `r HPDinterval(h2_ctmax)[,"upper"]`; $z^{TDT}$ – `r posterior.mode(h2_z)`, 95% CI: `r HPDinterval(h2_z)[,"lower"]` to `r HPDinterval(h2_z)[,"upper"]`; CFLs – `r posterior.mode(h2_cfls)`, 95% CI: `r HPDinterval(h2_cfls)[,"lower"]` to `r HPDinterval(h2_cfls)[,"upper"]`). The model predicted known data reasonably well for most traits (correlation between actual and estimated data: $z^{TDT}$ – `r cor.test(check_z$tdt_z, check_z$est)$estimate`, 95% CI: `r cor.test(check_z$tdt_z, check_z$est)$conf.int[1]` to `r cor.test(check_z$tdt_z, check_z$est)$conf.int[2]`, p < 0.001).
+
+```{r, fig-treesub}
+#| label: fig-treesub
+#| fig-cap: Species included in the dataset and their phylogenetic relationships.
+ 
+# prune tree
+t <- tree_checks(data, tree, dataCol = "species", type = "prune")
+
+layout.matrix <- matrix(c(1, 1, 1, 2,3,4), nrow = 3, ncol = 2) # Phylogeny takes up 3 panels (plot = 1) and the others take up a single panel. 
+
+layout(mat = layout.matrix) 
+# Plot 1
+plot(t, type = "tidy", cex = 0.65)
+
+# Plot 2
+plot(check_z$tdt_z ~ check_z$est, ylab = "TDT Slope (z)", xlab = "Estimated TDT Slope", pch = 16, cex = 3, cex.lab = 2)
+abline(a = 0, b = 1, col = "red")
+
+```
 
 ## References
