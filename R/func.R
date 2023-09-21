@@ -67,7 +67,7 @@ extract_blups <- function(sol, trait){
 #' @return A data frame containing the actual and predicted values for a given trait
 predict_accuracy <- function(data, blups, trait){
   # Get actual data. Note that we have species replicated multiple times. Stick to among species level so need to average the replicate populations of a given species. BLUPs are only estimated for a single species. 
-  
+
   known <- data %>% filter(!is.na({{trait}})) %>% dplyr::select(species, {{trait}}) %>% group_by(species) %>% summarise(trait = mean({{trait}}))
   
   # Get estimated data
@@ -80,4 +80,29 @@ predict_accuracy <- function(data, blups, trait){
   check <- left_join(known, est, by = "species")
 
   return(check)
+}
+
+#' @title phylo_corrs
+#' @description This function calculates the phylogenetic correlation between two traits
+#' @param vcv A variance covariance matrix
+#' @param trait1 The first trait to be analysed
+#' @param trait2 The second trait to be analysed
+#' @return A vector containing the posterior distribution of the phylogenetic correlation between the two traits
+phylo_corrs <- function(vcv, trait1, trait2){
+    
+    # Grep strings
+    animalt1 <- paste0("trait", trait1)
+    animalt2 <- paste0("trait", trait2)
+    
+    # Extract the variance components
+    vart1 <- vcv[,grep(paste0(animalt1, ":", animalt1, ".animal"), colnames(vcv))]
+    vart2 <- vcv[,grep(paste0(animalt2, ":", animalt2, ".animal"), colnames(vcv))]
+
+    # extract covariance between traits
+    cov_name <- paste0(animalt1, ":", animalt2, ".animal")
+
+    # Calculate correlatoon
+    r_phylo <- vcv[,cov_name] / sqrt(vart1 * vart2)
+
+    return(r_phylo)
 }
