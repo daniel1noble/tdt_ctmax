@@ -316,10 +316,12 @@ Interestingly, there was a reasonably strong phylogenetic correlation between $C
 # prune tree
 t <- tree_checks(data, tree, dataCol = "species", type = "prune")
 
-layout.matrix <- matrix(c(1, 1, 1, 2,3,4), nrow = 3, ncol = 2) # Phylogeny takes up 3 panels (plot = 1) and the others take up a single panel. 
 
 rerun = FALSE
 if(rerun){
+
+  layout.matrix <- matrix(c(1, 1, 1, 2,3,4), nrow = 3, ncol = 2) # Phylogeny takes up 3 panels (plot = 1) and the others take up a single panel. 
+
   pdf(height = 10.2, width = 8.1, file = here::here("output", "fig", "fig1.pdf"))
   layout(mat = layout.matrix) 
   # Plot 1
