@@ -59,9 +59,9 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
 
 sum <- data  %>% group_by(species)  %>% summarise(ctmax = mean(ctmax, na.rm = TRUE),
                                                    cfls = mean(cfts, na.rm = TRUE),
-                                                   tdt_z = mean(cfts, na.rm = TRUE))
+                                                   tdt_z = mean(cfts, na.rm = TRUE))  %>% data.frame()
 
-sum2 <- sapply(sum, function(x) sum(!is.na(x)))
+num_spp <- sapply(sum, function(x) sum(!is.na(x)))
 ```
 
 ## Estimate TDT Curve Parameters for *Drosophilia*
@@ -300,23 +300,25 @@ Powerful multivariate hierachical models (i.e., multi-response models) are capab
 
 #### Application of Multivariate Comparative Approaches using Thermal Tolerance Measures: A case study using *Drosophilids*
 
-We integrated static lethal limits ($CT_{max}$) collected by @Heerwaarden2021 and XX with dynamic lethal limit measures from TDT curces [i.e., slope ($z^{TDT}$) and intercept ($CT_{max}^{TDT}$)] estimated by XX. We also collected data to estimate TDT curve parameters for eight additonal species following protocols outlined in @Orsted2022. Critical fertility limits for *Drosophilids* were compiled from @Parratt2021 and @Heerwaarden2021. These data were integrated with data on lethal limits at the species-level. Overall, we obtained data for `r length(unique(t$tip.label))` species ($N_{CT_{max}}$ = `r sum2[2]` species; $N_{z^{TDT}}$ = `r sum2[4]` species and $N_{CFLs}$ = `r sum2[3]` species). When the same species were sampled multiple times we retained within species variation in models. We then fit the following model in R (vers. `r paste0(R.Version()$major, ".", R.Version()$minor)`)[@R2023] with the package *MCMCglmm* (vers. `r utils::packageVersion("MCMCglmm")`), which uses data augmentation during model fittng to estimate missing data [@Hadfield2010]:
+We integrated static lethal limits ($CT_{max}$) collected by @Heerwaarden2021 and XX with dynamic lethal limit measures from TDT curces [i.e., slope ($z^{TDT}$) and intercept ($CT_{max}^{TDT}$)] estimated by XX. We also collected data to estimate TDT curve parameters for eight additonal species following protocols outlined in @Orsted2022. Critical fertility limits for *Drosophilids* were compiled from @Parratt2021 and @Heerwaarden2021. These data were integrated with data on lethal limits at the species-level. Overall, we obtained data for `r length(unique(t$tip.label))` species ($N_{CT_{max}}$ = `r num_spp[2]-5` species; $N_{z^{TDT}}$ = `r num_spp[4]-4` species and $N_{CFLs}$ = `r num_spp[3]-4` species). When the same species were sampled multiple times we retained within species variation in models. We then fit the following model in R (vers. `r paste0(R.Version()$major, ".", R.Version()$minor)`)[@R2023] with the package *MCMCglmm* (vers. `r utils::packageVersion("MCMCglmm")`), which uses data augmentation during model fittng to estimate missing data [@Hadfield2010]:
 
 $$
 \begin{bmatrix}
  CT_{max} \\
  z^{TDT} \\
  CFLs
-\end{bmatrix} = u_{i,k} + p_{i,k} + sp_{i,k} + e_{i,k}
+\end{bmatrix} = u_{i,k} + p_{k} + sp_{k} + e_{i,k}
 $$
 
 $$
 \begin{aligned}
-& p_{i,k} \sim N\left(0, \sigma_{p}^2 \textbf{A} \right) \\
-& sp_{i,k} \sim N\left(0, \sigma_{sp}^2\textbf{I} \right) \\
+& p_{k} \sim N\left(0, \sigma_{p}^2 \textbf{A} \right) \\
+& sp_{k} \sim N\left(0, \sigma_{sp}^2\textbf{I} \right) \\
 & e_{i,k} \sim N\left(0,  \sigma_{e}^2\textbf{I}\right) \\
 \end{aligned}
 $$
+
+where $p_{k}$ and $sp_{k}$ are phylogenetic (evolutionary) and population level effects (assumed to be sampled from a normal distribution, $\sim N\left(0, \sigma_{sp/p}^2 \right)$) with the evolutionary relatedness being structured according to the phylogenetic relatesness matrix ($\textbf{A}$). 
 
 ##### Evolutionary signatures of thermal tolerance in *Drosophilids*
 
