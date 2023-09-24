@@ -52,6 +52,16 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, tidy = TRU
 
 # Grab our data
    data <- read.csv(here::here("data", "drosi_data.csv"))
+
+##################################
+# Summary Data
+##################################
+
+sum <- data  %>% group_by(species)  %>% summarise(ctmax = mean(ctmax, na.rm = TRUE),
+                                                   cfls = mean(cfts, na.rm = TRUE),
+                                                   tdt_z = mean(cfts, na.rm = TRUE))
+
+sum2 <- sapply(sum, function(x) sum(!is.na(x)))
 ```
 
 ## Estimate TDT Curve Parameters for *Drosophilia*
@@ -125,6 +135,9 @@ flextable(txt) %>%
   # Grab phylo matrix
   phy_vcv <- vcv(tree3, cor = FALSE)
   tree3$node.label <- NULL
+
+# prune tree
+  t <- tree_checks(data, tree, dataCol = "species", type = "prune")
 
 ```
 
@@ -271,6 +284,7 @@ check_ctmax <- predict_accuracy(data, ctmax, trait = ctmax)
    HPDinterval(phylocor_tdt_cfls)
 
 ```
+
 ```{r, posteriorsz}
 # We'll now plot the posterior distributions for each species.Obviously our 11 species with known data will have a much tighter distribution. You can see that in the plot. But the imputations are our 'best" guess based on the strong phylogenetic signal in the data. We can also always propagate the uncertainty across any subsequent analysis (like for example our micro-climate models)
   mcmc_areas(z[,1:15],prob = 0.8)
@@ -286,7 +300,7 @@ Powerful multivariate hierachical models (i.e., multi-response models) are capab
 
 #### Application of Multivariate Comparative Approaches using Thermal Tolerance Measures: A case study using *Drosophilids*
 
-We integrated static lethal limits ($CT_{max}$) collected by @Heerwaarden2021 and XX with dynamic lethal limit measures from TDT curces [i.e., slope ($z^{TDT}$) and intercept ($CT_{max}^{TDT}$)] estimated by XX. We also collected data to estimate TDT curve parameters for eight additonal species following protocols outlined in @Orsted2022. Critical fertility limits for *Drosophilids* were compiled from @Parratt2021 and @Heerwaarden2021. These data were integrated with data on lethal limits at the species-level. When the same species were sampled multiple times we retained within species variation in models. We then fit the following model in R (vers. `r paste0(R.Version()$major, ".", R.Version()$minor)`)[@R2023] with the package *MCMCglmm* (vers. `r utils::packageVersion("MCMCglmm")`), which uses data augmentation during model fittng to estimate missing data [@Hadfield2010]:
+We integrated static lethal limits ($CT_{max}$) collected by @Heerwaarden2021 and XX with dynamic lethal limit measures from TDT curces [i.e., slope ($z^{TDT}$) and intercept ($CT_{max}^{TDT}$)] estimated by XX. We also collected data to estimate TDT curve parameters for eight additonal species following protocols outlined in @Orsted2022. Critical fertility limits for *Drosophilids* were compiled from @Parratt2021 and @Heerwaarden2021. These data were integrated with data on lethal limits at the species-level. Overall, we obtained data for `r length(unique(t$tip.label))` species ($N_{CT_{max}}$ = `r sum2[2]` species; $N_{z^{TDT}}$ = `r sum2[4]` species and $N_{CFLs}$ = `r sum2[3]` species). When the same species were sampled multiple times we retained within species variation in models. We then fit the following model in R (vers. `r paste0(R.Version()$major, ".", R.Version()$minor)`)[@R2023] with the package *MCMCglmm* (vers. `r utils::packageVersion("MCMCglmm")`), which uses data augmentation during model fittng to estimate missing data [@Hadfield2010]:
 
 $$
 \begin{bmatrix}
@@ -297,16 +311,16 @@ $$
 $$
 
 $$
-p_{i,k} \sim N\left(0, \right) \\
-
-sp_{i,k} \sim N\left(0, \right) \\
-
-e_{i,k} \sim N\left(0,  \right) \\
+\begin{aligned}
+& p_{i,k} \sim N\left(0, \sigma_{p}^2 \textbf{A} \right) \\
+& sp_{i,k} \sim N\left(0, \sigma_{sp}^2\textbf{I} \right) \\
+& e_{i,k} \sim N\left(0,  \sigma_{e}^2\textbf{I}\right) \\
+\end{aligned}
 $$
 
 ##### Evolutionary signatures of thermal tolerance in *Drosophilids*
 
-We obtained data for `r` species (). Models including phylogeny were better supported than models without phylogeny ($\Delta DIC$ = `r mcmcglmm_model_z_trans_nophylo$DIC - mcmcglmm_model_z_trans$DIC`), with all traits exhibiting a moderate to strong phylogenetic signal indicating evolutionary conservatism in heat tolerance (Phylogenetic $H^2$: $CT_{max}$ – `r posterior.mode(h2_ctmax)`, 95% CI: `r HPDinterval(h2_ctmax)[,"lower"]` to `r HPDinterval(h2_ctmax)[,"upper"]`; $z^{TDT}$ – `r posterior.mode(h2_z)`, 95% CI: `r HPDinterval(h2_z)[,"lower"]` to `r HPDinterval(h2_z)[,"upper"]`; CFLs – `r posterior.mode(h2_cfls)`, 95% CI: `r HPDinterval(h2_cfls)[,"lower"]` to `r HPDinterval(h2_cfls)[,"upper"]`). While the model also suggested that there was within species variation, missing data and lack of replicate species populations make conclusions premature ($I^2_{species}$: $CT_{max}$ – `r posterior.mode(spp_ctmax)`, 95% CI: `r HPDinterval(spp_ctmax)[,"lower"]` to `r HPDinterval(spp_ctmax)[,"upper"]`; $z^{TDT}$ – `r posterior.mode(spp_z)`, 95% CI: `r HPDinterval(spp_z)[,"lower"]` to `r HPDinterval(spp_z)[,"upper"]`; CFLs – `r posterior.mode(spp_cfls)`, 95% CI: `r HPDinterval(spp_cfls)[,"lower"]` to `r HPDinterval(spp_cfls)[,"upper"]`). 
+ Models including phylogeny were better supported than models without phylogeny ($\Delta DIC$ = `r mcmcglmm_model_z_trans_nophylo$DIC - mcmcglmm_model_z_trans$DIC`), with all traits exhibiting a moderate to strong phylogenetic signal indicating evolutionary conservatism in heat tolerance (Phylogenetic $H^2$: $CT_{max}$ – `r posterior.mode(h2_ctmax)`, 95% CI: `r HPDinterval(h2_ctmax)[,"lower"]` to `r HPDinterval(h2_ctmax)[,"upper"]`; $z^{TDT}$ – `r posterior.mode(h2_z)`, 95% CI: `r HPDinterval(h2_z)[,"lower"]` to `r HPDinterval(h2_z)[,"upper"]`; CFLs – `r posterior.mode(h2_cfls)`, 95% CI: `r HPDinterval(h2_cfls)[,"lower"]` to `r HPDinterval(h2_cfls)[,"upper"]`). While the model also suggested that there was within species variation, missing data and lack of replicate species populations make conclusions premature ($I^2_{species}$: $CT_{max}$ – `r posterior.mode(spp_ctmax)`, 95% CI: `r HPDinterval(spp_ctmax)[,"lower"]` to `r HPDinterval(spp_ctmax)[,"upper"]`; $z^{TDT}$ – `r posterior.mode(spp_z)`, 95% CI: `r HPDinterval(spp_z)[,"lower"]` to `r HPDinterval(spp_z)[,"upper"]`; CFLs – `r posterior.mode(spp_cfls)`, 95% CI: `r HPDinterval(spp_cfls)[,"lower"]` to `r HPDinterval(spp_cfls)[,"upper"]`). 
 
 ##### Evolutionary relationships can help understand thermal tolerance in species lacking data
 The model predicted known data reasonably well for most traits (correlation between known values and values estimated from the model: $z^{TDT}$ – `r cor.test(check_z$trait, check_z$est)$estimate`, 95% CI: `r cor.test(check_z$trait, check_z$est)$conf.int[1]` to `r cor.test(check_z$trait, check_z$est)$conf.int[2]`, p < 0.001; $CT_{max}$ – `r cor.test(check_ctmax$trait, check_ctmax$est)$estimate`, 95% CI: `r cor.test(check_ctmax$trait, check_ctmax$est)$conf.int[1]` to `r cor.test(check_ctmax$trait, check_ctmax$est)$conf.int[2]`, p < 0.001; CFLs – `r cor.test(check_cfls$trait, check_cfls$est)$estimate`, 95% CI: `r cor.test(check_cfls$trait, check_cfls$est)$conf.int[1]` to `r cor.test(check_cfls$trait, check_cfls$est)$conf.int[2]`, p < 0.001), suggesting that even this basic model could be used to provide sensible quantitative measures for *Drosophila* species without heat tolerance estimates. While modelling approaches such as these are not a replacement for actual empirical data, they could be used to provide informed judgements on thermal tolerance in the absence of such information, but should be tested (using cross-validation) and refined when necessary.
@@ -319,11 +333,6 @@ Interestingly, there was a reasonably strong phylogenetic correlation between $C
 #| fig-cap: Species included in the dataset and their phylogenetic relationships.
 #| echo: false
 #| message: false
-
- 
-# prune tree
-t <- tree_checks(data, tree, dataCol = "species", type = "prune")
-
 
 rerun = FALSE
 if(rerun){
