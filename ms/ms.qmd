@@ -1,5 +1,5 @@
 ---
-title: "Box 1 - TDT Curves"
+title: ""
 bibliography: ../bib/refs.bib
 csl: ../bib/nature.csl
 format:
@@ -64,53 +64,6 @@ sum <- data  %>% group_by(species)  %>% summarise(ctmax = mean(ctmax, na.rm = TR
 num_spp <- sapply(sum, function(x) sum(!is.na(x)))
 ```
 
-## Estimate TDT Curve Parameters for *Drosophilia*
-```{r, newspp}
-#| label: newspp
-#| echo: false
-#| message: false
-#| include: false
-
-# Load the data
-  spp <- read_csv(here::here("data", "tdt_curves.csv"))
-
-# Calcluate the TDT
-  tdt <- split(spp, spp$group) 
-
-# Calculations
-  txt <- plyr::ldply(lapply(tdt, function(x) tdt_calc(data = x)))
-
-```
-
-We can have a look at each new species' TDT curves collected by Vanessa (@fig-tdt). We can also use the data to calculate the TDT curve (slope) and $CT_{max}$ for each species (Table 1). 
-
-```{r, fig-tdt}
-#| label: fig-tdt
-#| fig-cap: TDT curves for each species. The x-axis is temperature and the y-axis is the log10 of the time to coma. 
-#| message: false
-#| echo: false
-
-# Lets have a look at the data
-  #ggplot2::ggplot(data, ggplot2::aes(x = assay_temp, y = log10(t_coma), colour = group)) + ggplot2::geom_point() + #ggplot2::facet_wrap(~group, nrow = 2, ncol = 4) +ggplot2::labs(x = "Temperature", y = "log 10 Coma Time") + #ggplot2::theme_bw() 
-  
-# Fecet wrap doesn't seem to want to work
-  par(mfrow=c(2,4))
-  invisible(lapply(tdt, function(x) plot(log10(x$t_coma) ~ x$assay_temp,  main= unique(x$group), xlab = "Temperature", ylab = "log 10 Coma Time", pch = 16, col = "black")))
-```
-
-```{r, tbl-1}
-#| label: tbl-1
-#| tbl-cap: Estimated parameters for each of the 8 new species. 
-labels <- c("Species", "Slope", "CTMax")
-
-flextable(txt) %>% 
-    align(align = "center", part = "all") %>% 
-    font(fontname="Times", part = "body") %>% 
-    font(fontname="Times", part = "header")  %>%  
-    flextable::compose(i = 1, j = 1:3, part = "header", value= as_paragraph(as_b(labels))) %>% 
-    autofit()  
-```
-
 ## Applying Multivariate Modelling Approaches 
 
 ```{r, treesetup}
@@ -144,7 +97,7 @@ flextable(txt) %>%
 ```{r, fig-tree}
 #| label: fig-tree
 #| fig-cap: "Phylogenetic relationships among `r length(tree$tip.label)` *Drosophila* species."
-
+#| include: false
 # Plot the tree
   plot(tree, cex = 0.2, type = "radial")
 ```
@@ -288,23 +241,22 @@ check_ctmax <- predict_accuracy(data, ctmax, trait = ctmax)
 ```
 
 ```{r, posteriorsz}
+#| include: false
 # We'll now plot the posterior distributions for each species.Obviously our 11 species with known data will have a much tighter distribution. You can see that in the plot. But the imputations are our 'best" guess based on the strong phylogenetic signal in the data. We can also always propagate the uncertainty across any subsequent analysis (like for example our micro-climate models)
   mcmc_areas(z[,1:15],prob = 0.8)
 ```
 
 ## Box 1 – Comparing the utility of TDT Curves to other measures of heat tolerance within a comparative framework
 
-Parameters from Thermal Death Time (TDT) curves provide a powerful tool for understanding the thermal sensitivity of organisms. But there are drawbacks to estimating TDT curves in comparison to other lethal (e.g. $CT_{max}$) and sublethal (CFL) measures. TDT curves are logistically challenging requiring more individuals for reliable estimates than other measures like $CT_{max}$ and CFL’s. TDT curves (and $CT_{max}$) also cannot be used for all organisms due to ethical and conservation considerations. Because of these limitations data on thermal sensitivity/heat vulnerability is missing for many species, creating significant knowledge gaps across the tree of life. 
+Parameters from Thermal Death Time (TDT) curves provide a powerful tool for understanding the thermal sensitivity of organisms. But there are drawbacks to estimating TDT curves in comparison to other lethal (e.g. $CT_{max}$) and sublethal (CFL) measures. TDT curves are logistically challenging requiring more individuals for reliable estimates than other measures like $CT_{max}$ and CFL’s. TDT curves (and $CT_{max}$) also cannot be used for all organisms due to ethical and conservation considerations. Ethical issues could be alleviated by the use of sublethal measures of thermal tolerance like CFL’s (ref), but we do not know how well lethal (TDT curves/$CT_{max}$) and sublethal (CFL’s) measures capture thermal sensitivities/vulnerabilities. Identifying whether a correlation exists between lethal and sub-lethal limits will help us understand the mechanisms of vulnerability to heat stress that might lead to population extinction well before mortality is identified. Because of these limitations data on thermal sensitivity/heat vulnerability is missing for many species, creating significant knowledge gaps across the tree of life. 
 
 Phylogenetic comparative approaches could be leveraged to help fill these knowledge gaps because closely related species are often more likely to share similar traits owing to their evolutionary history (phylogenetic niche conservatism) (ref). If heat tolerance is linked to the phylogeny, shared characteristics that make species more or less heat tolerant will not be randomly distributed across the phylogeny but biased by species groups (ref). We can can use evolutionary relatedness to predict species thermal sensitivities and such insights can be used to inform policy and conservation related decisions making for species with little to no data.
 
-While the comparative approach can help fill knowledge gaps it does not entirely solve the issue that TDT curves cannot be estimated for many organisms (logistical and ethical). $CT_{max}$ is less logistically challenging but also has ethical limitations. Ethical issues could be alleviated by the use of sublethal measures of thermal tolerance like CFL’s (ref), but we do not know how well lethal (TDT curves/$CT_{max}$) and sublethal (CFL’s) measures capture thermal sensitivities/vulnerabilities. Identifying whether a correlation exists between lethal and sub-lethal limits will help us understand the mechanisms of vulnerability to heat stress that might lead to population extinction well before mortality is identified. And if these traits are correlated different measures of thermal tolerance can be used for different organisms.
-
-#### Application of Multivariate Comparative Approaches using Thermal Tolerance Measures: A case study using *Drosophilids*
+#### Application of Multivariate Phylogenetic Comparative Approaches using Thermal Tolerance Measures: A case study using *Drosophilids*
 
 Here we use powerful multivariate hierachical models (i.e., multi-response models) that are capable of dealing with missing data, and provide a means by which multiple physiological thermal tolerance measures can be modelled simultaneously [@Pottier2023; @Noble2021]. When used in conjunction with an understanding of the phylogenetic relationships among species and/or populations, such modelling approaches can provide informed estimates for species missing data and explicitly estimate the covariance between tolerance measures while accounting for their uncertainty. 
 
-We integrated static lethal limits ($CT_{max}$) collected by @Heerwaarden2021 and XX with dynamic lethal limit measures from TDT curces [i.e., slope ($z^{TDT}$) and intercept ($CT_{max}^{TDT}$)] estimated by XX. We also collected data to estimate TDT curve parameters for eight additonal species following protocols outlined in @Orsted2022. Critical fertility limits for *Drosophilids* were compiled from @Parratt2021 and @Heerwaarden2021. These data were integrated with data on lethal limits at the species-level. Overall, we obtained data for `r num_spp[1]` species ($N_{CT_{max}}$ = `r num_spp[2]` species; $N_{z^{TDT}}$ = `r num_spp[4]` species and $N_{CFLs}$ = `r num_spp[3]` species). When the same species were sampled multiple times we retained within species variation in models. We then fit the following model in R (vers. `r paste0(R.Version()$major, ".", R.Version()$minor)`)[@R2023] with the package *MCMCglmm* (vers. `r utils::packageVersion("MCMCglmm")`), which uses data augmentation during model fittng to estimate missing data [@Hadfield2010]:
+We integrated static lethal limits ($CT_{max}$) collected by Heerwaarden & Sgrò @Heerwaarden2021 and Kellerman *et al* @Kellerman2012 with dynamic lethal limit measures from TDT curces [i.e., slope ($z^{TDT}$) and intercept ($CT_{max}^{TDT}$)] estimated by Jorgensen *et al* @Jorgensen2019 and . We also collected data to estimate TDT curve parameters for eight additonal species following protocols outlined in @Orsted2022. Critical fertility limits for *Drosophilids* were compiled from @Parratt2021 and @Heerwaarden2021. These data were integrated with data on lethal limits at the species-level. Overall, we obtained data for `r num_spp[1]` species ($N_{CT_{max}}$ = `r num_spp[2]` species; $N_{z^{TDT}}$ = `r num_spp[4]` species and $N_{CFLs}$ = `r num_spp[3]` species). When the same species were sampled multiple times we retained within species variation in models. We then fit the following model in R (vers. `r paste0(R.Version()$major, ".", R.Version()$minor)`)[@R2023] with the package *MCMCglmm* (vers. `r utils::packageVersion("MCMCglmm")`), which uses data augmentation during model fittng to estimate missing data [@Hadfield2010]:
 
 $$
 \begin{bmatrix}
@@ -359,6 +311,62 @@ if(rerun){
   fig <- magick::image_read(here::here("output", "fig", "fig1.pdf"))
   plot(fig)
 }
+```
+
+## Supplementary Methods and Results – Box 1
+
+### Quantifying Thermal Death Time Curves in eight new species of *Drosophila*
+#### Methods
+Thermal death time curves were estimated in eight species of Drosophila: *Drosophila bipectinata*, *Drosophila birchii*, *Drosophila hydei*, *Drosophila kikkawaii*, *Drosophila pseudoananassae*, *Drosophila simulans* and *Drosophila sulfurigaster*. All species were collected from the field between 2021 and 2022 by sweep netting over rotten bananas. Flies were taken back to the laboratory with isofemale lines established from field inseminated females. Mass bred populations were established by combining 20 isofemale lines together, with mass bred population sizes maintained at 20°C 12/12hr light at an approximate population size of 750 individuals. Prior to initiation of the experiment flies were placed onto laying pots and 30-40 eggs were collected into each 10-15 replicate vials to control for density. On emergence flies were maintained for 4-5 days prior to separating the sexes via CO2 anesthesia. Flies were given two days recovery prior to estimation of the thermal death time curves, with TDT curves estimated on on female flies. 
+
+For each species thermal death time curves were estimated at five temperatures (35, 36, 37.5, 39 and 40°C), with 11-20 replicates per temperature. Flies were placed into a sealed 5mL glass vial and placed into a water set to one of the above temperatures. Flies were then monitored continuously and the time at which they knocked down from heat stress and ceased all movement was recorded. For two species *D. simulans* and *D. hydei* we were not able to get all the knockdown time data at 35 °C due to the length of time of the experiment. When the experiment was terminated around 50% of *D. simulans* had knockdown while not a single individual of *D. hydei* had knockdown (although flies were beginning to show signs of heat stress). After considering the data with and without this temperature (individuals not knockdown were scored as the time at which the experiment was terminated) we decided to include it. By including the data we are likely biasing towards a shallower slope but excluding the data we believe would create a stronger bias in the opposite direction.
+
+#### Results
+
+We analysed the thermal death time curves for 8 new species of *Drosophila* using the same methods as @Jorgensen2019, using linear models with log 10 coma time as the response and assay temperature as the predcitor [@fig-tdt]. We then used the model to estimate the slope and intercept ($CT_{max}$) for each species [@tbl-1]. 
+
+```{r, newspp}
+#| label: newspp
+#| echo: false
+#| message: false
+#| include: false
+
+# Load the data
+  spp <- read_csv(here::here("data", "tdt_curves.csv"))
+
+# Calcluate the TDT
+  tdt <- split(spp, spp$group) 
+
+# Calculations
+  txt <- plyr::ldply(lapply(tdt, function(x) tdt_calc(data = x)))
+
+```
+
+```{r, fig-tdt}
+#| label: fig-tdt
+#| fig-cap: TDT curves for each species. The x-axis is temperature and the y-axis is the log10 of the time to coma. 
+#| message: false
+#| echo: false
+
+# Lets have a look at the data
+  #ggplot2::ggplot(data, ggplot2::aes(x = assay_temp, y = log10(t_coma), colour = group)) + ggplot2::geom_point() + #ggplot2::facet_wrap(~group, nrow = 2, ncol = 4) +ggplot2::labs(x = "Temperature", y = "log 10 Coma Time") + #ggplot2::theme_bw() 
+  
+# Fecet wrap doesn't seem to want to work
+  par(mfrow=c(2,4))
+  invisible(lapply(tdt, function(x) plot(log10(x$t_coma) ~ x$assay_temp,  main= unique(x$group), xlab = "Temperature", ylab = "log 10 Coma Time", pch = 16, col = "black")))
+```
+
+```{r, tbl-1}
+#| label: tbl-1
+#| tbl-cap: Estimated parameters for each of the 8 new species. 
+labels <- c("Species", "Slope", "CTMax")
+
+flextable(txt) %>% 
+    align(align = "center", part = "all") %>% 
+    font(fontname="Times", part = "body") %>% 
+    font(fontname="Times", part = "header")  %>%  
+    flextable::compose(i = 1, j = 1:3, part = "header", value= as_paragraph(as_b(labels))) %>% 
+    autofit()  
 ```
 
 ## References
