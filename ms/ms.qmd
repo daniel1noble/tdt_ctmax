@@ -5,6 +5,10 @@ csl: ../bib/nature.csl
 format:
   docx:
     reference-doc: ../bib/template.docx
+  pdf: 
+    documentclass: report
+    margin-left: 30mm
+    margin-right: 30mm
 editor_options: 
   chunk_output_type: console
 execute:
