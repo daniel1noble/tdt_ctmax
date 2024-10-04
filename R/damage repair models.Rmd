@@ -11,8 +11,6 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
-
 ```{r libraries and functions}
 
 library(tidyverse)
