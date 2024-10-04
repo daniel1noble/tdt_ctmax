@@ -140,7 +140,6 @@ There is the need to demonstrate what the damage model looks like: damage follow
 
 Temperature dependence of both, and then their integration...
 
-
 ```{r Damage to repair ratio}
 
 set.seed(21)
