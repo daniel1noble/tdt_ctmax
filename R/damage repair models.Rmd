@@ -1,0 +1,451 @@
+---
+title: "Damage Repair Functions"
+author: "Pieter Arnold"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r libraries and functions}
+
+library(tidyverse)
+library(ggpubr)
+library(raster)
+library(ncdf4)
+library(ozmaps)
+
+dynamic.landscape1 <-
+  function(ta,tolerance.landscape,kdot_ref){
+  
+  ArrFunc5 <- function(x,TA,TAL,TAH,TL,TH,TREF,kdot_ref){
+    exp(TA*(1/TREF-1/(273.15+x)))/(1+exp(TAL*(1/(273.15+x)-1/TL))+exp(TAH*(1/TH-1/(273.15+x))))*kdot_ref
+  }
+  
+  TA <- 1000
+  TL <- 8.5 + 273.15
+  TH <- 25.5 + 273.15
+  TAL <- 100000
+  TAH <- 100000
+  TREF <- 20 + 273.15
+  
+  Tbs <- seq(0, 50)
+  TempCorr <- ArrFunc5(Tbs, TA, TAL, TAH, TL, TH, TREF, 0.001)
+  
+  surv <- tolerance.landscape$S[,2] + seq(0,0.0000001,length.out=1000)
+  ta.mn <- tolerance.landscape$ta.mn
+  z <- tolerance.landscape$z
+  shift <- 10^((ta.mn - ta)/z)	
+  time.rel <- 0
+  alive <- 100
+  survival <- matrix(NA, length(ta))
+  repair <- ArrFunc5(ta, TA, TAL, TAH, TL, TH, TREF, kdot_ref)
+  for(i in 1:length(ta)){			
+    if(!is.na(alive)) {
+      alive <- try(approx(c(0,shift[i]*surv),seq(100,0,length.out = length(c(0,surv))),
+                          xout = time.rel[i] + 1)$y,silent=TRUE)	
+      alive <- alive + ArrFunc5(ta[i], TA, TAL, TAH, TL, TH, TREF, kdot_ref)
+      alive <- ifelse(alive > 100,100,alive)
+      survival[i] <- alive
+      time.rel <- try(c(time.rel,approx(seq(100,0,length.out = length(c(0,surv))),c(0,shift[i + 1]*surv),
+                                        xout = alive)$y),silent=TRUE)}
+    else{
+      alive <- 100
+      survival[i] <- 0}}				
+  out <- data.frame(cbind(ta=ta[1:(length(survival)-1)],time=(1:length(ta))[1:(length(survival)-1)],
+                          alive=survival[1:(length(survival)-1)]))
+  par(mar=c(4,4,1,1),mfrow=c(1,2))
+  plot(1:length(ta),ta,type="l",xlim=c(0,length(ta)),ylim=c(min(ta),max(ta)),col="black",lwd=1.5,las=1,
+       xlab = "Time (min)", ylab = "Temperature (ºC)")			
+  plot(out$time,out$alive,type="l",xlim=c(0,length(ta)),ylim=c(0,100),col="black",lwd=1.5,las=1,
+       xlab = "Time (min)", ylab = "Survival (%)")
+  list(time = out$time,ta = out$ta, survival = out$alive)}
+
+
+# Add in a dynamic repair function within
+dynamic.landscape2 <-
+  function(ta,tolerance.landscape,kdot_ref){
+  
+  ArrFunc5 <- function(x,TA,TAL,TAH,TL,TH,TREF,kdot_ref){
+    exp(TA*(1/TREF-1/(273.15+x)))/(1+exp(TAL*(1/(273.15+x)-1/TL))+exp(TAH*(1/TH-1/(273.15+x))))*kdot_ref
+  }
+  
+  TA <- 1000
+  TL <- 8.5 + 273.15
+  TH <- 25.5 + 273.15
+  TAL <- 100000
+  TAH <- 100000
+  TREF <- 20 + 273.15
+  
+  Tbs <- seq(0, 50)
+  TempCorr <- ArrFunc5(Tbs, TA, TAL, TAH, TL, TH, TREF, 0.001)
+  
+  surv <- tolerance.landscape$S[,2] + seq(0,0.0000001,length.out=1000)
+  ta.mn <- tolerance.landscape$ta.mn
+  z <- tolerance.landscape$z
+  shift <- 10^((ta.mn - ta)/z)	
+  time.rel <- 0
+  alive <- 100
+  survival <- matrix(NA, length(ta))
+  kdot <- matrix(NA, length(ta))
+  repair <- ArrFunc5(ta, TA, TAL, TAH, TL, TH, TREF, kdot_ref)
+  for(i in 1:length(ta)){			
+    if(!is.na(alive)) {
+      alive <- try(approx(c(0,shift[i]*surv),seq(100,0,length.out = length(c(0,surv))),
+                          xout = time.rel[i] + 1)$y,silent=TRUE)	
+      # modify kdot_ref based on alive. If alive > 99, kdot_ref stays the same. If alive < 99, kdot_ref reduces as a function of alive
+      kdot_ref1 <- ifelse(alive < 99, kdot_ref*(1-(0.97^alive)), kdot_ref)
+      alive <- alive + ArrFunc5(ta[i], TA, TAL, TAH, TL, TH, TREF, kdot_ref1)
+      alive <- ifelse(alive > 100,100,alive)
+      survival[i] <- alive
+      kdot[i] <- kdot_ref1
+      time.rel <- try(c(time.rel,approx(seq(100,0,length.out = length(c(0,surv))),c(0,shift[i + 1]*surv),
+                                        xout = alive)$y),silent=TRUE)}
+    else{
+      alive <- 100
+      survival[i] <- 0
+      kdot[i] <- kdot_ref }}				
+  out <- data.frame(cbind(ta=ta[1:(length(survival)-1)],time=(1:length(ta))[1:(length(survival)-1)],
+                          alive=survival[1:(length(survival)-1)],kdot=kdot[1:(length(survival)-1)]))
+  par(mar=c(4,4,1,1),mfrow=c(1,2))
+  plot(1:length(ta),ta,type="l",xlim=c(0,length(ta)),ylim=c(min(ta),max(ta)),col="black",lwd=1.5,las=1,
+       xlab = "Time (min)", ylab = "Temperature (ºC)")			
+  plot(out$time,out$alive,type="l",xlim=c(0,length(ta)),ylim=c(0,100),col="black",lwd=1.5,las=1,
+       xlab = "Time (min)", ylab = "Survival (%)")
+  list(time = out$time,ta = out$ta, survival = out$alive, kdot = out$kdot)}
+
+alive <- seq(1,100,1)
+plot(kdot_ref*(kdot_ref^(kdot_ref/(1/(100-alive)))) ~ rev(alive), type = "l")
+plot(kdot_ref*scales::rescale(exp((alive)^0.01)) ~ alive, type = "l")
+
+kdot_ref*(kdot_ref^(kdot_ref/(1/(100-99))))
+kdot_ref*(kdot_ref^(kdot_ref/(1/(100-50))))
+kdot_ref*(kdot_ref^(kdot_ref/(1/(100-20))))
+
+plot(kdot_ref*(1-(0.98^alive)) ~ alive, type = "l")
+
+kdot_ref*(1-(0.95^(alive)))
+alive
+
+
+
+```
+
+
+There is the need to demonstrate what the damage model looks like: damage following exposure to a given temperature for a given duration and then to do the same for the repair model. 
+
+Temperature dependence of both, and then their integration...
+
+
+```{r Damage to repair ratio}
+
+set.seed(21)
+
+# Set Arrhenius model and repair rate parameters		
+TA <- 14065 # Arrhenius temperature, K
+TL <- 10.5 + 273.15 # Arrhenius temperature lower threshold, K
+TH <- 28.5 + 273.15 # Arrhenius temperature upper threshold, K
+TAL <- 50000 # Arrhenius temperature lower, K
+TAH <- 100000 # Arrhenius temperature upper, K
+TREF <- 20 + 273.15 # reference temperature, K
+Tbs <- seq(0, 50) # sequence of temperatures over which to model, deg C
+kdot_ref <- 0.003 # repair rate % per minute at ref temp 20 deg C
+
+# Load ectotherm model data and subset to example four week period
+par(mfrow = c(1,1))
+#ta <- read.csv("ectotherm.csv")[3006 + 1:(24*28),] # subset ectotherm - derived from NicheMapR
+ta <- read.csv("ectotherm.csv")[3006 + 1:(24*28),] # subset ectotherm - derived from NicheMapR
+ta <- ta$TC + 0.15 # Body temperature
+plot(ta, type = "l")
+time.min <- spline(ta, n = length(ta-1)*60)$x	
+ta.min <- spline(ta,n = length(ta-1)*60)$y	
+ta <- ta.min
+ind <- 1000
+ctmax <- 43.8
+z <-  -2.4
+
+static <- rep(c(round(ctmax,2),round(ctmax+z,2), round(ctmax+z*2,2)), each = ind)
+time <- abs(c(rnorm(ind,1,1/4), rnorm(ind,10,10/4), rnorm(ind,100,100/4)))	
+tl <- tolerance.landscape(static, time)
+
+# Fit modified dynamic.landscape function that includes the Arrhenius repair function
+
+# No repair
+dl0 <- dynamic.landscape2(ta,tl,0)
+# Three levels of repair rates
+# Original 0.001,0.002,0.003
+dl1 <- dynamic.landscape2(ta,tl,0.002)
+dl2 <- dynamic.landscape2(ta,tl,0.005)
+dl3 <- dynamic.landscape2(ta,tl,0.007)
+
+# Temperature-time model sequence
+time2 <- log10(seq(1,20000,1))
+ht <- 43.8 + (-2.4*time2)
+sim <- data.frame(cbind(time2,ht))
+Tbs <- seq(5, 45, 0.2)
+
+# Generate Arrhenius functions for repair rates
+TempCorr0 <- ArrFunc5(Tbs, TA, TAL, TAH, TL, TH, TREF, 0.0)
+TempCorr1 <- ArrFunc5(Tbs, TA, TAL, TAH, TL, TH, TREF, 0.002)
+TempCorr2 <- ArrFunc5(Tbs, TA, TAL, TAH, TL, TH, TREF, 0.005)
+TempCorr3 <- ArrFunc5(Tbs, TA, TAL, TAH, TL, TH, TREF, 0.007)
+
+damage <- c(seq(0.000001,0.001,0.00001),(seq(0.1,3,0.01)^3))/70
+damage <- damage[1:201]
+
+
+TempCorrDat <- data.frame(cbind(Tbs, TempCorr0, TempCorr1, TempCorr2, TempCorr3, damage))
+TempCorrDatL <- TempCorrDat %>% pivot_longer(cols = c(TempCorr0, TempCorr1, TempCorr2, TempCorr3), 
+                                             names_to = c("repair"), values_to = "repair_value")
+TempCorrDatL <- subset(TempCorrDatL, Tbs > 6)
+TempCorrDatLrepair <- subset(TempCorrDatL, repair!="TempCorr0") 
+
+dldat <- data.frame(cbind(data.frame(dl0),data.frame(dl1),data.frame(dl2),data.frame(dl3)))
+dldatL <- dldat %>% pivot_longer(cols = c(survival, survival.1, survival.2, survival.3), names_to = c("repair"),
+                                 values_to = "repair_value")
+
+dldatKL <- dldat %>% pivot_longer(cols = c(kdot, kdot.1, kdot.2, kdot.3), names_to = c("kdot"), 
+                                 values_to = "kdot_value")
+
+dldat_comb <- data.frame(cbind(dldatL$repair, dldatL$repair_value, dldatKL$kdot, dldatKL$kdot_value))
+colnames(dldat_comb) <- c("repair", "repair_value", "kdot", "kdot_value")
+dldat_comb$repair_value <- as.numeric(dldat_comb$repair_value)
+dldat_comb$kdot_value <- as.numeric(dldat_comb$kdot_value)
+
+func_seq <- seq(0,100,1)
+repair0_func <- 0*(1-(0.97^func_seq))
+repair1_func <- 0.002*(1-(0.97^func_seq))
+repair2_func <- 0.005*(1-(0.97^func_seq))
+repair3_func <- 0.007*(1-(0.97^func_seq))
+rate_decay <- data.frame(func_seq, repair0_func, repair1_func, repair2_func, repair3_func)
+rate_decayL <- rate_decay %>% pivot_longer(cols = c(repair0_func, repair1_func, repair2_func, repair3_func), 
+                                           names_to = "repair", values_to = "repair_value")
+
+# Repair rate
+repair_plot <- 
+ggplot(data.frame(TempCorrDatL), aes(x = Tbs, y = repair_value, colour = repair)) +
+  geom_path(aes(group = repair)) +
+  scale_x_continuous(limits = c(5,45)) +
+  scale_y_continuous(limits = c(0,0.02)) +
+  scale_colour_manual(name = "Repair rate", values = c(cbp2[1:4]), 
+                      labels = c("None", "Low", "Moderate", "High")) +
+  labs(y = bquote(Repair~rate~("%"~min^-1)), x = bquote(Temperature~(degree~C))) +
+  theme_classic()
+
+# Damage rate
+damage_plot <- 
+ggplot(data.frame(TempCorrDatL), aes(x = Tbs, y = damage)) +
+  geom_path() +
+  scale_x_continuous(limits = c(5,45)) +
+  scale_y_continuous(limits = c(0,0.02)) +
+  labs(y = bquote(Damage~rate~("%"~min^-1)), x = bquote(Temperature~(degree~C))) +
+  theme_classic()
+
+# Net damage rate
+net_plot <- 
+ggplot(data.frame(TempCorrDatL), aes(x = Tbs, y = damage-repair_value, colour = repair)) +
+  geom_path(aes(group = repair)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  scale_x_continuous(limits = c(5,45)) +
+  scale_y_continuous(limits = c(-0.02,0.02)) +
+  scale_colour_manual(name = "Repair rate", values = c(cbp2[1:4]), 
+                      labels = c("None", "Low", "Moderate", "High")) +
+  labs(y = bquote(Net~damage~rate~("%"~min^-1)), x = bquote(Temperature~(degree~C))) +
+  theme_classic()
+
+# Ratio of damage:repair
+ratio_plot <- 
+ggplot(data.frame(TempCorrDatLrepair), aes(x = Tbs, y = (damage/repair_value), colour = repair)) +
+  geom_path(aes(group = repair)) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  scale_x_continuous(limits = c(5,45)) +
+  scale_y_log10(limits = c(0.0005,10000), breaks = c(0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000), 
+                labels = c("0.0001", "0.001", "0.01", "0.1", "1", "10", "100", "1000", "10000")) +
+  #scale_y_continuous(limits = c(0,100)) +
+  scale_colour_manual(name = "Repair rate", values = c(cbp2[2:4]), 
+                      labels = c("Low", "Moderate", "High")) +
+  #annotate("text", x = 8, y = 0.2, label = "Repair > Damage", hjust = 0) +
+  #annotate("text", x = 14, y = 1000, label = "Damage > Repair", hjust = 0) +
+  labs(y = bquote(Damage:repair~ratio), x = bquote(Temperature~(degree~C))) +
+  theme_classic() + theme(legend.position = "none")
+
+
+# Plot sensitivity temp~time and display CTmax and z
+base_tls_plot <- 
+ggplot(data = sim, aes(y = ht, x = time2)) +
+  geom_smooth(method = "lm", formula = y~x, colour = "black", fullrange = F) + 
+  ylim(28,45) + xlim(0,4.5) +
+  labs(y = bquote(Temperature~(degree~C)), x = bquote(log[10]~Time~(min))) +
+  annotate("text", x = 0.3, y = 34, label = bquote(italic(CT[max])~"′"=="43.8°C"), hjust = 0) +
+  annotate("text", x = 0.3, y = 32, label = bquote(italic(z)=="-2.4"), hjust = 0) +
+  theme_classic()
+
+# Plot four weeks of body temperature
+tb_plot <- 
+ggplot(data.frame(dl0), aes(y = ta, x = time)) +
+  geom_hline(yintercept = 28.5, colour = "black", lty = 2) + 
+  geom_line() +
+  labs(x = "Time (days)", y = bquote(Temperature~(degree~C))) +
+  scale_y_continuous(limits = c(0,40)) +
+  annotate("text", x = 12000, y = 38, label = bquote(italic(T)[H]=="28.5°C"), hjust = 0) +
+  theme_classic() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+# Plot physiological function over the four weeks incorporating repair 
+func_plot <- 
+ggplot(dldatL, aes(y = repair_value, x = time, colour = repair)) +
+  geom_path(aes(group = repair)) +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_colour_manual(name = "Repair rate", values = c(cbp2[1:4]), 
+                      labels = c("None", "Low", "Moderate", "High")) +
+  labs(x = "Time (days)", y = "Physiological function (%)") +
+  theme_classic() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+# Plot decline in repair over time due to damage accumulation 
+decline_plot <- 
+ggplot(dldatKL, aes(y = kdot_value, x = time, colour = kdot)) +
+  geom_path(aes(group = kdot)) +
+  #scale_y_continuous(limits = c(0,100)) +
+  scale_colour_manual(name = "Repair rate", values = c(cbp2[1:4]), 
+                      labels = c("None", "Low", "Moderate", "High")) +
+  labs(x = "Time (days)", y = bquote(Repair~rate~(italic(dot(k))~coefficient))) +
+  theme_classic() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+# Plot decline as a function of damage accumulation
+decline_func_plot <- 
+ggplot(rate_decayL, aes(y = repair_value, x = func_seq, colour = repair)) +
+  geom_path(aes(group = repair)) +
+  #scale_y_continuous(limits = c(0,100)) +
+  scale_x_reverse() +
+  scale_colour_manual(name = "Repair rate", values = c(cbp2[1:4]), 
+                      labels = c("None", "Low", "Moderate", "High")) +
+  labs(x = "Physiological function (%)", y = bquote(Repair~rate~(italic(dot(k))~coefficient))) +
+  theme_classic()
+decline_func_plot
+
+ggarrange(base_tls_plot, damage_plot, repair_plot, 
+          ratio_plot, net_plot, decline_func_plot, 
+          tb_plot, func_plot, decline_plot, 
+          labels = "AUTO", align = "hv", ncol = 3, nrow = 3,
+          common.legend = TRUE, legend = "bottom")
+
+
+
+```
+
+
+
+```{r Testing}
+
+
+par(mfrow = c(1,1))
+ta <- read.csv("ectotherm.csv")[3006 + 1:(24*28),] # subset ectotherm - derived from NicheMapR
+ta <- ta$TC # Body temperature
+plot(ta, type = "l")
+time.min <- spline(ta, n = length(ta-1)*60)$x	
+ta.min <- spline(ta,n = length(ta-1)*60)$y	
+ta <- ta.min
+ind <- 1000
+ctmax <- 43.8
+z <-  -2.4
+
+static <- rep(c(round(ctmax,2),round(ctmax+z,2), round(ctmax+z*2,2)), each = ind)
+time <- abs(c(rnorm(ind,1,1/4), rnorm(ind,10,10/4), rnorm(ind,100,100/4)))	
+tl <- tolerance.landscape(static, time)
+
+# Attempting to breakdown how the damage works in tolerance.landscape
+dynamic.landscape1
+tl$S[,2]
+shift <- 10^((tl$ta.mn - tl$ta)/tl$z)
+surv <- tl$S[,2] + seq(0,0.0000001,length.out=1000)
+time.rel <- 0
+
+try(approx(c(0,shift[i]*surv),seq(100,0,length.out = length(c(0,surv))),
+                          xout = time.rel[i] + 1)$y,silent=F)
+
+# Interpolation function
+approx(c(0,1*surv))$y
+
+seq(100,0,length.out = length(c(0,surv)))
+
+?approx
+
+
+```
+
+
+
+```{r simulate damage}
+
+
+weeddata <- read.csv("weedseeddata_all.csv") 
+# Data extracted from Dahlquist et al. (2007) Figures using metaDigitise
+# https://doi.org/10.1614/WS-04-178.1 
+
+weeddata$mortality_prop <- weeddata$mortality_percent/100
+weeddata$log10timemin <- log10(weeddata$time_min)
+weeddata_sp1 <- subset(weeddata, species=="London rocket")
+
+# Load in extracted dataset that contains LT80 values
+weedLT80 <- read.csv("Weed_LT80.csv")
+weedLT80$log10timemin <- log10(weedLT80$time_min)
+
+LT80mod_Orsted1 <- lm(log10timemin ~ temp_treatment, data = subset(weedLT80, weedLT80$Species2=="Black nightshade"))
+
+intercept <- as.numeric(LT80mod_Orsted1$coefficients[1])
+slope <- as.numeric(LT80mod_Orsted1$coefficients[2])
+
+# -1/slope = 6.75 (z; sensitivity)
+
+
+# This shows the accumulation of damage at a given temperature along a time sequence, not a time duration treatment
+Time <- seq(1, 200, 1)
+Temperature <- seq(0.5,100,0.5)
+Acc_damage_sp1 <- Acc_function(Time,Temperature, 
+                                as.numeric(LT80mod_Orsted1$coefficients[1]), # intercept
+                                as.numeric(LT80mod_Orsted1$coefficients[2])) # slope 
+data <- as.data.frame(cbind(Time, Temperature, Acc_damage_sp1))
+datalong <- data %>% pivot_longer(cols = c(Acc_damage_sp1), 
+                                  names_to = "Acc_damage")
+datalong$load <- datalong$Time * datalong$Temperature
+
+ggplot(datalong, aes(x = Temperature, y = value, colour = Time)) +
+  geom_line() +
+  xlab("Temperature") + ylab("Damage (%)") +
+  theme_classic()
+
+
+ggplot(datalong, aes(x = Time, y = Temperature)) +
+  facet_wrap(~Acc_damage, nrow = 3, labeller = labeller(Acc_damage = facet.labs)) +
+  geom_line() +
+  geom_point(data = datalong, aes(x = Time, y = Temperature, fill = value),
+             shape = 21, size = 1.5, alpha = 1) +
+  scale_fill_gradientn("Damage (%)", colours = colfunc(21), limits = c(0,100)) +
+  labs(x = "Time (min)", y = bquote(Temperature~(degree~C))) +
+  ylim(28,60) +  
+  theme_classic() + 
+  theme(legend.position = "right", strip.background = element_blank(),
+        strip.text = element_text(face = "italic"))
+
+
+Acc_function(seq(1:30), seq(21:50), intercept, slope)
+
+i=1
+x=seq(1,30,1)
+y=seq(21,50,1)
+acc = max(0, min(100, (100 * (x[i + 1] - x[i])) / (10^(slope * max(y[i + 1], y[i]) + intercept))))
+acc
+
+max(0, min(100, (100 * (x[i + 1] - x[i])) / (10^(slope * max(y[i + 1], y[i]) + intercept))))
+
+```
+
+
